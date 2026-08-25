@@ -1,0 +1,17 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+
+# Local environment variables and secrets
+.env.local
+.env*.local
+
+# Local logs and temporary files
+*.log
+work/
+
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+.vscode/
