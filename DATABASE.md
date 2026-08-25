@@ -21,7 +21,7 @@ pip install -r requirements.txt
 Set the target PostgreSQL URL:
 
 ```bash
-export DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/disability_navigator"
+export DATABASE_URL="postgresql+psycopg://xicom@localhost:5432/disability_navigator"
 ```
 
 Run migrations:
