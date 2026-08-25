@@ -1,1 +1,1 @@
-"""Seed package."""
+"""Demo seed package."""
