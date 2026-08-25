@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from database.session import get_engine, get_session_factory
 from models.schema import (
     Appointment,
+    AppointmentMethod,
     AppointmentSlot,
     AppointmentStatus,
     AssistanceStatus,
@@ -52,7 +53,6 @@ from models.schema import (
     User,
     UserRole,
     VerificationStatus,
-    AppointmentMethod,
 )
 
 NAMESPACE = uuid.UUID("85bc37aa-7429-4576-bdc6-5d18c560d9f1")
@@ -63,10 +63,7 @@ def demo_id(name: str) -> uuid.UUID:
 
 
 def add_if_missing(session: Session, instance, key_field: str = "id") -> None:
-    model = type(instance)
-    key_value = getattr(instance, key_field)
-    existing = session.get(model, key_value)
-    if existing is None:
+    if session.get(type(instance), getattr(instance, key_field)) is None:
         session.add(instance)
 
 
@@ -81,48 +78,24 @@ def seed(session: Session) -> None:
         add_if_missing(session, Role(id=role_id, name=name))
 
     users = {
-        "citizen": User(
-            id=demo_id("user:citizen"),
-            email="citizen@demo.local",
-            password_hash="mock-hash-citizen",
-            full_name="Rahul Sharma",
-            phone="+91-9876500001",
-        ),
-        "hospital": User(
-            id=demo_id("user:hospital"),
-            email="hospital@demo.local",
-            password_hash="mock-hash-hospital",
-            full_name="Dr. Ananya Mehta",
-            phone="+91-9876500002",
-        ),
-        "state": User(
-            id=demo_id("user:state"),
-            email="state@demo.local",
-            password_hash="mock-hash-state",
-            full_name="Meera Iyer",
-            phone="+91-9876500003",
-        ),
-        "admin": User(
-            id=demo_id("user:admin"),
-            email="admin@demo.local",
-            password_hash="mock-hash-admin",
-            full_name="Platform Admin",
-            phone="+91-9876500004",
-        ),
+        "citizen": User(id=demo_id("user:citizen"), email="citizen@demo.local", password_hash="mock-hash-citizen", full_name="Rahul Sharma", phone="+91-9876500001"),
+        "hospital": User(id=demo_id("user:hospital"), email="hospital@demo.local", password_hash="mock-hash-hospital", full_name="Dr. Ananya Mehta", phone="+91-9876500002"),
+        "state": User(id=demo_id("user:state"), email="state@demo.local", password_hash="mock-hash-state", full_name="Meera Iyer", phone="+91-9876500003"),
+        "admin": User(id=demo_id("user:admin"), email="admin@demo.local", password_hash="mock-hash-admin", full_name="Platform Admin", phone="+91-9876500004"),
     }
     for user in users.values():
         add_if_missing(session, user)
     session.flush()
 
-    role_links = [
-        (users["citizen"].id, roles[RoleName.citizen]),
-        (users["hospital"].id, roles[RoleName.hospital_staff]),
-        (users["state"].id, roles[RoleName.state_representative]),
-        (users["admin"].id, roles[RoleName.admin]),
-    ]
-    for user_id, role_id in role_links:
-        if session.get(UserRole, {"user_id": user_id, "role_id": role_id}) is None:
-            session.add(UserRole(user_id=user_id, role_id=role_id))
+    for user_key, role_name in [
+        ("citizen", RoleName.citizen),
+        ("hospital", RoleName.hospital_staff),
+        ("state", RoleName.state_representative),
+        ("admin", RoleName.admin),
+    ]:
+        key = {"user_id": users[user_key].id, "role_id": roles[role_name]}
+        if session.get(UserRole, key) is None:
+            session.add(UserRole(**key))
 
     citizen = CitizenProfile(
         id=demo_id("citizen:rahul"),
@@ -137,17 +110,20 @@ def seed(session: Session) -> None:
         identity_verification_status=IdentityVerificationStatus.verified,
     )
     add_if_missing(session, citizen)
+    session.flush()
 
-    disability = DisabilityProfile(
-        id=demo_id("disability:rahul"),
-        citizen_id=citizen.id,
-        disability_category=DisabilityCategory.visual,
-        certificate_status=CertificateStatus.pending,
-        udid_status=UdidStatus.pending,
-        percentage_requirement_met=True,
-        broad_disability_status="benchmark_disability_likely",
+    add_if_missing(
+        session,
+        DisabilityProfile(
+            id=demo_id("disability:rahul"),
+            citizen_id=citizen.id,
+            disability_category=DisabilityCategory.visual,
+            certificate_status=CertificateStatus.pending,
+            udid_status=UdidStatus.pending,
+            percentage_requirement_met=True,
+            broad_disability_status="benchmark_disability_likely",
+        ),
     )
-    add_if_missing(session, disability)
 
     hospital = Hospital(
         id=demo_id("hospital:delhi-gov"),
@@ -163,6 +139,8 @@ def seed(session: Session) -> None:
         official_url="https://example.gov.in/delhi-hospital",
     )
     add_if_missing(session, hospital)
+    session.flush()
+
     department = HospitalDepartment(
         id=demo_id("department:ophthalmology-board"),
         hospital_id=hospital.id,
@@ -171,14 +149,12 @@ def seed(session: Session) -> None:
         assessment_type="visual_disability_certificate",
     )
     add_if_missing(session, department)
-    staff = HospitalStaff(
-        id=demo_id("hospital-staff:ananya"),
-        user_id=users["hospital"].id,
-        hospital_id=hospital.id,
-        job_title="Medical Board Coordinator",
-        department_id=department.id,
+    session.flush()
+
+    add_if_missing(
+        session,
+        HospitalStaff(id=demo_id("hospital-staff:ananya"), user_id=users["hospital"].id, hospital_id=hospital.id, job_title="Medical Board Coordinator", department_id=department.id),
     )
-    add_if_missing(session, staff)
 
     state_office = StateOffice(
         id=demo_id("state-office:delhi-commissioner"),
@@ -191,34 +167,34 @@ def seed(session: Session) -> None:
         official_url="https://example.gov.in/delhi-disability-commissioner",
     )
     add_if_missing(session, state_office)
-    representative = StateRepresentative(
-        id=demo_id("state-rep:meera"),
-        user_id=users["state"].id,
-        state_office_id=state_office.id,
-        designation="Assistant Commissioner",
+    session.flush()
+    add_if_missing(
+        session,
+        StateRepresentative(id=demo_id("state-rep:meera"), user_id=users["state"].id, state_office_id=state_office.id, designation="Assistant Commissioner"),
     )
-    add_if_missing(session, representative)
 
-    service = GovernmentService(
-        id=demo_id("service:disability-certificate-delhi"),
-        name="Disability Certificate and UDID Support",
-        category="certificate",
-        description="Mock registry entry explaining the disability certificate journey for citizens in Delhi.",
-        state="Delhi",
-        authority="Delhi Government Hospital Medical Board",
-        department="Department of Health and Family Welfare",
-        eligibility_summary="Citizen requires assessment by notified medical board for disability certification.",
-        required_documents_summary="Identity proof reference, address proof reference, photographs, medical assessment notes.",
-        appointment_required=True,
-        appointment_method=AppointmentMethod.api,
-        processing_time="21-30 working days",
-        fee="No fee for mock demo",
-        official_url="https://example.gov.in/disability-certificate",
-        grievance_authority="Delhi State Commissioner for Persons with Disabilities",
-        escalation_authority="Chief Commissioner for Persons with Disabilities",
-        last_verified=date(2026, 8, 25),
+    add_if_missing(
+        session,
+        GovernmentService(
+            id=demo_id("service:disability-certificate-delhi"),
+            name="Disability Certificate and UDID Support",
+            category="certificate",
+            description="Mock registry entry explaining the disability certificate journey for citizens in Delhi.",
+            state="Delhi",
+            authority="Delhi Government Hospital Medical Board",
+            department="Department of Health and Family Welfare",
+            eligibility_summary="Citizen requires assessment by notified medical board for disability certification.",
+            required_documents_summary="Identity proof reference, address proof reference, photographs, medical assessment notes.",
+            appointment_required=True,
+            appointment_method=AppointmentMethod.api,
+            processing_time="21-30 working days",
+            fee="No fee for mock demo",
+            official_url="https://example.gov.in/disability-certificate",
+            grievance_authority="Delhi State Commissioner for Persons with Disabilities",
+            escalation_authority="Chief Commissioner for Persons with Disabilities",
+            last_verified=date(2026, 8, 25),
+        ),
     )
-    add_if_missing(session, service)
 
     benefits = [
         ("Delhi Transport Concession Pass", "mobility", "Delhi", "Concession travel support for eligible PwD citizens."),
@@ -250,28 +226,10 @@ def seed(session: Session) -> None:
                 is_mock=True,
             ),
         )
-        add_if_missing(
-            session,
-            BenefitEligibilityRule(
-                id=demo_id(f"benefit-rule:{index}:state"),
-                benefit_id=benefit_id,
-                field_name="state",
-                operator=RuleOperator.eq,
-                comparison_value=state or "any",
-                required=state is not None,
-            ),
-        )
-        add_if_missing(
-            session,
-            BenefitEligibilityRule(
-                id=demo_id(f"benefit-rule:{index}:benchmark"),
-                benefit_id=benefit_id,
-                field_name="percentage_requirement_met",
-                operator=RuleOperator.eq,
-                comparison_value="true",
-                required=True,
-            ),
-        )
+        session.flush()
+        add_if_missing(session, BenefitEligibilityRule(id=demo_id(f"benefit-rule:{index}:benchmark"), benefit_id=benefit_id, field_name="percentage_requirement_met", operator=RuleOperator.eq, comparison_value="true", required=True))
+        if state:
+            add_if_missing(session, BenefitEligibilityRule(id=demo_id(f"benefit-rule:{index}:state"), benefit_id=benefit_id, field_name="state", operator=RuleOperator.eq, comparison_value=state, required=True))
 
     ngos = [
         ("Vision Access Foundation", "New Delhi", ["visual"], ["mobility_training", "screen_reader_support"]),
@@ -302,6 +260,7 @@ def seed(session: Session) -> None:
                 is_mock=True,
             ),
         )
+    session.flush()
 
     case = Case(
         id=demo_id("case:rahul-certificate"),
@@ -315,8 +274,9 @@ def seed(session: Session) -> None:
         priority=CasePriority.normal,
     )
     add_if_missing(session, case)
+    session.flush()
 
-    step_names = [
+    steps = [
         ("Profile", StepStatus.completed, "Citizen profile verified", "Platform"),
         ("Service identified", StepStatus.completed, "Disability certificate service matched", "Platform"),
         ("Hospital identified", StepStatus.completed, "Delhi Government Hospital selected", "Platform"),
@@ -327,7 +287,7 @@ def seed(session: Session) -> None:
         ("Grievance", StepStatus.not_started, "Available if case is delayed", "State Office"),
         ("Escalation", StepStatus.not_started, "Escalate if grievance remains unresolved", "State Office"),
     ]
-    for order, (name, status, next_action, authority) in enumerate(step_names, start=1):
+    for order, (name, status, next_action, authority) in enumerate(steps, start=1):
         add_if_missing(
             session,
             CaseStep(
@@ -342,70 +302,43 @@ def seed(session: Session) -> None:
             ),
         )
 
-    add_if_missing(
-        session,
-        CaseEvent(
-            id=demo_id("case-event:created"),
-            case_id=case.id,
-            actor_user_id=users["citizen"].id,
-            event_type="case_created",
-            description="Rahul started a mock disability certificate journey.",
-        ),
-    )
-    add_if_missing(
-        session,
-        CaseEvent(
-            id=demo_id("case-event:hospital-assigned"),
-            case_id=case.id,
-            actor_user_id=users["admin"].id,
-            event_type="hospital_assigned",
-            description="Delhi Government Hospital assigned for ophthalmology board assessment.",
-        ),
-    )
+    add_if_missing(session, CaseEvent(id=demo_id("case-event:created"), case_id=case.id, actor_user_id=users["citizen"].id, event_type="case_created", description="Rahul started a mock disability certificate journey."))
+    add_if_missing(session, CaseEvent(id=demo_id("case-event:hospital-assigned"), case_id=case.id, actor_user_id=users["admin"].id, event_type="hospital_assigned", description="Delhi Government Hospital assigned for ophthalmology board assessment."))
 
     for day in range(1, 6):
         slot_date = date(2026, 8, 25 + day)
-        add_if_missing(
-            session,
-            AppointmentSlot(
-                id=demo_id(f"slot:{slot_date.isoformat()}:10"),
-                hospital_id=hospital.id,
-                department_id=department.id,
-                date=slot_date,
-                start_time=time(10, 0),
-                end_time=time(10, 30),
-                capacity=6,
-                booked_count=1 if day == 1 else 0,
-            ),
-        )
-        add_if_missing(
-            session,
-            AppointmentSlot(
-                id=demo_id(f"slot:{slot_date.isoformat()}:11"),
-                hospital_id=hospital.id,
-                department_id=department.id,
-                date=slot_date,
-                start_time=time(11, 0),
-                end_time=time(11, 30),
-                capacity=6,
-                booked_count=0,
-            ),
-        )
+        for hour in (10, 11):
+            add_if_missing(
+                session,
+                AppointmentSlot(
+                    id=demo_id(f"slot:{slot_date.isoformat()}:{hour}"),
+                    hospital_id=hospital.id,
+                    department_id=department.id,
+                    date=slot_date,
+                    start_time=time(hour, 0),
+                    end_time=time(hour, 30),
+                    capacity=6,
+                    booked_count=1 if day == 1 and hour == 10 else 0,
+                ),
+            )
+    session.flush()
 
-    appointment = Appointment(
-        id=demo_id("appointment:rahul-initial"),
-        appointment_number="APT-2026-00042",
-        citizen_id=citizen.id,
-        case_id=case.id,
-        hospital_id=hospital.id,
-        department_id=department.id,
-        appointment_date=date(2026, 8, 26),
-        appointment_time=time(10, 0),
-        status=AppointmentStatus.confirmed,
-        booking_method=BookingMethod.mock_api,
-        notes="Mock API booking for visual disability assessment.",
+    add_if_missing(
+        session,
+        Appointment(
+            id=demo_id("appointment:rahul-initial"),
+            appointment_number="APT-2026-00042",
+            citizen_id=citizen.id,
+            case_id=case.id,
+            hospital_id=hospital.id,
+            department_id=department.id,
+            appointment_date=date(2026, 8, 26),
+            appointment_time=time(10, 0),
+            status=AppointmentStatus.confirmed,
+            booking_method=BookingMethod.mock_api,
+            notes="Mock API booking for visual disability assessment.",
+        ),
     )
-    add_if_missing(session, appointment)
 
     document = Document(
         id=demo_id("document:rahul-address-proof"),
@@ -418,23 +351,15 @@ def seed(session: Session) -> None:
         status=DocumentStatus.verified,
     )
     add_if_missing(session, document)
-    add_if_missing(
-        session,
-        DocumentPermission(
-            id=demo_id("document-permission:hospital-view"),
-            document_id=document.id,
-            granted_to_user_id=users["hospital"].id,
-            permission_type=PermissionType.view,
-        ),
-    )
+    session.flush()
+    add_if_missing(session, DocumentPermission(id=demo_id("document-permission:hospital-view"), document_id=document.id, granted_to_user_id=users["hospital"].id, permission_type=PermissionType.view))
 
-    first_benefit_id = demo_id("benefit:1:Delhi Transport Concession Pass")
     add_if_missing(
         session,
         BenefitApplication(
             id=demo_id("benefit-application:rahul-transport"),
             citizen_id=citizen.id,
-            benefit_id=first_benefit_id,
+            benefit_id=demo_id("benefit:1:Delhi Transport Concession Pass"),
             status=BenefitApplicationStatus.draft,
             missing_information="Certificate approval required before submission.",
             notes="Demo draft application created for Rahul.",
@@ -453,40 +378,11 @@ def seed(session: Session) -> None:
         assigned_state_office_id=state_office.id,
     )
     add_if_missing(session, grievance)
-    add_if_missing(
-        session,
-        GrievanceAction(
-            id=demo_id("grievance-action:acknowledged"),
-            grievance_id=grievance.id,
-            actor_user_id=users["state"].id,
-            action_type="acknowledged",
-            message="State representative acknowledged the demo grievance and requested hospital status.",
-        ),
-    )
+    session.flush()
+    add_if_missing(session, GrievanceAction(id=demo_id("grievance-action:acknowledged"), grievance_id=grievance.id, actor_user_id=users["state"].id, action_type="acknowledged", message="State representative acknowledged the demo grievance and requested hospital status."))
 
-    first_ngo_id = demo_id("ngo:1:Vision Access Foundation")
-    add_if_missing(
-        session,
-        NgoAssistanceRequest(
-            id=demo_id("ngo-request:rahul-vision-access"),
-            citizen_id=citizen.id,
-            ngo_id=first_ngo_id,
-            assistance_type="appointment_preparation",
-            description="Rahul requested help preparing documents for the hospital appointment.",
-            status=AssistanceStatus.requested,
-        ),
-    )
-
-    add_if_missing(
-        session,
-        Notification(
-            id=demo_id("notification:rahul-appointment"),
-            user_id=users["citizen"].id,
-            title="Appointment confirmed",
-            body="Your mock medical board appointment is confirmed at Delhi Government Hospital.",
-            notification_type="appointment",
-        ),
-    )
+    add_if_missing(session, NgoAssistanceRequest(id=demo_id("ngo-request:rahul-vision-access"), citizen_id=citizen.id, ngo_id=demo_id("ngo:1:Vision Access Foundation"), assistance_type="appointment_preparation", description="Rahul requested help preparing documents for the hospital appointment.", status=AssistanceStatus.requested))
+    add_if_missing(session, Notification(id=demo_id("notification:rahul-appointment"), user_id=users["citizen"].id, title="Appointment confirmed", body="Your mock medical board appointment is confirmed at Delhi Government Hospital.", notification_type="appointment"))
 
     session.commit()
 
@@ -495,8 +391,7 @@ def main() -> None:
     engine = get_engine()
     session_factory = get_session_factory(engine)
     with session_factory() as session:
-        existing = session.scalar(select(User).where(User.email == "citizen@demo.local"))
-        if existing:
+        if session.scalar(select(User).where(User.email == "citizen@demo.local")):
             print("Demo seed data already appears to be present; ensuring missing records are added.")
         seed(session)
         print("Demo seed data loaded.")
