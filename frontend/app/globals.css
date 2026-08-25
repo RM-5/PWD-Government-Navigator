@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base { * { @apply border-slate-200; } body { @apply bg-slate-50 text-ink antialiased; } button,a,input,select,textarea { @apply focus:outline-none focus-visible:ring-4 focus-visible:ring-teal/30 focus-visible:ring-offset-2; } }
+.card { @apply rounded-2xl border bg-white p-5 shadow-sm; }.pill { @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-bold tracking-wide; }.btn { @apply inline-flex items-center justify-center rounded-xl bg-teal px-4 py-3 font-bold text-white hover:bg-[#066873]; }.btn-secondary { @apply inline-flex items-center justify-center rounded-xl border bg-white px-4 py-3 font-bold text-navy hover:bg-slate-50; }.label { @apply mb-2 block text-sm font-bold text-slate-700; }
+[data-size='large'] { font-size: 118%; } [data-contrast='high'] body, body[data-contrast='high'] { background:#fff; color:#000; } [data-contrast='high'] .card { border-color:#000; box-shadow:none; } [data-motion='reduced'] * { scroll-behavior:auto !important; transition:none !important; animation:none !important; }
