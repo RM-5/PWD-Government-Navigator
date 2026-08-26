@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     database_auto_seed_demo: bool = True
     database_startup_check: bool = True
     demo_auth_enabled: bool = True
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins: list[str] | str = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     @classmethod
     def parse_cors_origins(cls, value):
         if isinstance(value, str):
+            if value.startswith("[") and value.endswith("]"):
+                import json
+                try:
+                    return json.loads(value)
+                except Exception:
+                    pass
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
