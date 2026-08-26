@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "backend:dev": ".venv/bin/uvicorn app.main:app --reload --port 8000",
-    "backend:test": ".venv/bin/pytest",
+    "backend:dev": "python -m uvicorn app.main:app --reload --port 8000",
+    "backend:test": "python -m pytest",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",
     "test": "npm run backend:test",
