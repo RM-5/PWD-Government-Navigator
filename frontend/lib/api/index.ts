@@ -272,6 +272,8 @@ const appointments = {
     booking_method?: string;
     notes?: string;
   }) => post<Appointment>('/api/appointments', { ...data, booking_method: data.booking_method || 'mock_api' }),
+  update: (id: string, data: { status?: string; appointment_date?: string; appointment_time?: string; notes?: string }) =>
+    patch<Appointment>(`/api/appointments/${id}`, data),
   updateStatus: (id: string, data: { status: string; notes?: string }) => patch<Appointment>(`/api/appointments/${id}`, data),
 };
 

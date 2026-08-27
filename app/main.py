@@ -28,6 +28,7 @@ from app.schemas import (
     AppointmentOut,
     AppointmentSlotOut,
     AppointmentStatusUpdate,
+    AppointmentUpdate,
     BenefitApplicationCreate,
     BenefitApplicationOut,
     BenefitEligibilityOut,
@@ -636,9 +637,9 @@ def book_appointment(
 
 @app.patch("/appointments/{appointment_id}", response_model=AppointmentOut)
 @app.patch("/appointments/{appointment_id}/status", response_model=AppointmentOut)
-def update_appointment_status(
+def update_appointment(
     appointment_id: UUID,
-    payload: AppointmentStatusUpdate,
+    payload: AppointmentUpdate,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(require_roles(RoleName.hospital_staff, RoleName.admin))],
 ):
@@ -649,10 +650,15 @@ def update_appointment_status(
         staff = current_hospital_staff(db, current_user)
         if appointment.hospital_id != staff.hospital_id:
             raise forbidden("Hospital staff cannot update appointments outside their hospital")
-    appointment.status = payload.status
-    if payload.notes:
+    if payload.status is not None:
+        appointment.status = payload.status
+    if payload.appointment_date is not None:
+        appointment.appointment_date = payload.appointment_date
+    if payload.appointment_time is not None:
+        appointment.appointment_time = payload.appointment_time
+    if payload.notes is not None:
         appointment.notes = payload.notes
-    write_audit(db, current_user, "appointment_status_updated", "appointments", appointment.id, {"status": payload.status.value})
+    write_audit(db, current_user, "appointment_updated", "appointments", appointment.id, payload.model_dump(exclude_unset=True))
     db.commit()
     db.refresh(appointment)
     return appointment

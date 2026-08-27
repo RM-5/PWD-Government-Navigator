@@ -158,6 +158,13 @@ class AppointmentStatusUpdate(BaseModel):
     notes: str | None = None
 
 
+class AppointmentUpdate(BaseModel):
+    status: AppointmentStatus | None = None
+    appointment_date: date | None = None
+    appointment_time: time | None = None
+    notes: str | None = None
+
+
 class AppointmentOut(ORMModel):
     id: UUID
     appointment_number: str

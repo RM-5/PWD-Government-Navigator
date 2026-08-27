@@ -723,11 +723,286 @@ function NotificationsPage() {
 function HospitalView({ page }: { page: string }) {
   const [cases, setCases] = useState<CaseBasic[]>();
   const [apts, setApts] = useState<Appointment[]>();
+  const [slots, setSlots] = useState<AppointmentSlot[]>([]);
+  const [reschedulingApt, setReschedulingApt] = useState<Appointment | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<string>('');
+  const [rescheduleNotes, setRescheduleNotes] = useState<string>('');
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   useEffect(() => {
     api.cases.list().then(setCases);
     api.appointments.list().then(setApts);
+    api.appointments.slots().then(setSlots);
   }, []);
-  if (!cases) return <Loading />;
+
+  const refreshData = async () => {
+    const updatedApts = await api.appointments.list();
+    setApts(updatedApts);
+    const updatedSlots = await api.appointments.slots();
+    setSlots(updatedSlots);
+    const updatedCases = await api.cases.list();
+    setCases(updatedCases);
+  };
+
+  const handleAccept = async (apt: Appointment) => {
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      await api.appointments.update(apt.id, {
+        status: 'confirmed',
+        notes: apt.notes ? `${apt.notes} · Accepted by Board` : 'Accepted by Medical Board',
+      });
+      await refreshData();
+      setFeedback({ type: 'success', message: `Appointment ${apt.appointment_number} accepted and confirmed.` });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to accept appointment.' });
+    }
+    setActionLoading(false);
+  };
+
+  const handleComplete = async (apt: Appointment) => {
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      await api.appointments.update(apt.id, {
+        status: 'completed',
+        notes: apt.notes ? `${apt.notes} · Assessment Completed` : 'Assessment Completed by Medical Board',
+      });
+      await refreshData();
+      setFeedback({ type: 'success', message: `Appointment ${apt.appointment_number} marked as completed.` });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to complete appointment.' });
+    }
+    setActionLoading(false);
+  };
+
+  const openRescheduleModal = (apt: Appointment) => {
+    setReschedulingApt(apt);
+    setSelectedSlotId('');
+    setRescheduleNotes(apt.notes || 'Rescheduled by Medical Board due to schedule availability.');
+    setFeedback(null);
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!reschedulingApt || !selectedSlotId) return;
+    const slot = slots.find((s) => s.id === selectedSlotId);
+    if (!slot) return;
+
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      await api.appointments.update(reschedulingApt.id, {
+        appointment_date: slot.date,
+        appointment_time: slot.start_time,
+        status: 'confirmed',
+        notes: rescheduleNotes,
+      });
+      await refreshData();
+      setFeedback({
+        type: 'success',
+        message: `Appointment ${reschedulingApt.appointment_number} rescheduled to ${slot.date} at ${slot.start_time}.`,
+      });
+      setReschedulingApt(null);
+      setSelectedSlotId('');
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to reschedule appointment.' });
+    }
+    setActionLoading(false);
+  };
+
+  if (!cases || !apts) return <Loading />;
+
+  // Filter available slots (booked_count < capacity)
+  const availableSlots = slots.filter((s) => s.booked_count < s.capacity);
+
+  const appointmentsTable = (
+    <div className="card mt-6 overflow-x-auto">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-navy">Medical Board Appointments</h2>
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Accept or Reschedule based on board availability
+        </span>
+      </div>
+
+      {feedback && (
+        <div
+          className={`mb-4 rounded-xl p-3 text-sm font-semibold ${
+            feedback.type === 'success' ? 'bg-mint text-teal border border-teal/20' : 'bg-red-50 text-red-700 border border-red-200'
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
+
+      {apts.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-500">No appointments assigned to your hospital board.</p>
+      ) : (
+        <table className="min-w-full text-left text-sm">
+          <thead>
+            <tr className="border-b text-slate-500">
+              <th className="p-3">Number</th>
+              <th className="p-3">Date</th>
+              <th className="p-3">Time</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Notes</th>
+              <th className="p-3 text-right">Board Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {apts.map((a) => {
+              const isConfirmed = a.status === 'confirmed';
+              const isCompleted = a.status === 'completed';
+
+              return (
+                <tr key={a.id} className="border-b hover:bg-slate-50/60 transition-colors">
+                  <td className="p-3 font-bold text-teal">{a.appointment_number}</td>
+                  <td className="p-3 font-semibold text-navy">{a.appointment_date}</td>
+                  <td className="p-3 text-slate-700">{a.appointment_time}</td>
+                  <td className="p-3">
+                    <span
+                      className={`pill text-xs ${
+                        isCompleted
+                          ? 'bg-blue-100 text-blue-900'
+                          : isConfirmed
+                          ? 'bg-mint text-teal'
+                          : a.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
+                      {a.status.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="p-3 max-w-xs truncate text-xs text-slate-500">{a.notes || '—'}</td>
+                  <td className="p-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {!isConfirmed && !isCompleted && (
+                        <button
+                          onClick={() => handleAccept(a)}
+                          disabled={actionLoading}
+                          className="rounded-lg bg-teal px-3 py-1.5 text-xs font-bold text-white hover:bg-teal/90 disabled:opacity-50"
+                        >
+                          Accept
+                        </button>
+                      )}
+                      {isConfirmed && !isCompleted && (
+                        <button
+                          onClick={() => handleComplete(a)}
+                          disabled={actionLoading}
+                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          Complete Assessment
+                        </button>
+                      )}
+                      {!isCompleted && (
+                        <button
+                          onClick={() => openRescheduleModal(a)}
+                          disabled={actionLoading}
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-navy hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          Reschedule
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {/* Reschedule Modal / Panel */}
+      {reschedulingApt && (
+        <div className="mt-6 rounded-2xl border-2 border-teal bg-gradient-to-br from-mint/20 to-white p-5 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="pill bg-mint text-teal font-bold text-xs">BOARD RESCHEDULING</span>
+              <h3 className="mt-1 text-lg font-black text-navy">
+                Reschedule Appointment: {reschedulingApt.appointment_number}
+              </h3>
+              <p className="text-xs text-slate-600">
+                Currently scheduled for <b>{reschedulingApt.appointment_date}</b> at <b>{reschedulingApt.appointment_time}</b>
+              </p>
+            </div>
+            <button
+              onClick={() => setReschedulingApt(null)}
+              className="rounded-lg border bg-white px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Select an available slot based on hospital board availability:
+            </label>
+            {availableSlots.length === 0 ? (
+              <p className="mt-2 text-sm text-red-600">No alternate open slots found for this board.</p>
+            ) : (
+              <div className="mt-2 grid gap-2 sm:grid-cols-3 max-h-48 overflow-y-auto p-1">
+                {availableSlots.map((s) => {
+                  const isSelected = selectedSlotId === s.id;
+                  return (
+                    <button
+                      type="button"
+                      key={s.id}
+                      onClick={() => setSelectedSlotId(s.id)}
+                      className={`rounded-xl border p-3 text-left transition-all ${
+                        isSelected
+                          ? 'border-teal bg-teal text-white shadow-sm ring-2 ring-teal/30'
+                          : 'bg-white hover:border-teal/50 hover:bg-mint/10'
+                      }`}
+                    >
+                      <p className={`font-bold text-sm ${isSelected ? 'text-white' : 'text-navy'}`}>{s.date}</p>
+                      <p className={`text-xs ${isSelected ? 'text-teal-100' : 'text-slate-600'}`}>
+                        {s.start_time} – {s.end_time}
+                      </p>
+                      <p className={`mt-1 text-[10px] font-semibold ${isSelected ? 'text-teal-200' : 'text-teal'}`}>
+                        {s.capacity - s.booked_count} spots available
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Rescheduling reason / Notes:
+            </label>
+            <input
+              type="text"
+              value={rescheduleNotes}
+              onChange={(e) => setRescheduleNotes(e.target.value)}
+              placeholder="e.g. Rescheduled due to medical board doctor availability"
+              className="mt-1 w-full rounded-xl border bg-white p-2.5 text-sm"
+            />
+          </div>
+
+          <div className="mt-4 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setReschedulingApt(null)}
+              className="rounded-xl border bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmReschedule}
+              disabled={!selectedSlotId || actionLoading}
+              className="btn text-xs disabled:opacity-50"
+            >
+              {actionLoading ? 'Rescheduling…' : 'Confirm Reschedule'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   if (page === 'cases') {
     return (
@@ -735,12 +1010,18 @@ function HospitalView({ page }: { page: string }) {
         <Title eyebrow="Hospital desk" title="Hospital cases" copy="Cases assigned to your hospital." />
         <div className="card overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead><tr className="border-b text-slate-500">
-              <th className="p-3">Case #</th><th className="p-3">Type</th><th className="p-3">Stage</th><th className="p-3">Status</th><th className="p-3">Priority</th>
-            </tr></thead>
+            <thead>
+              <tr className="border-b text-slate-500">
+                <th className="p-3">Case #</th>
+                <th className="p-3">Type</th>
+                <th className="p-3">Stage</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Priority</th>
+              </tr>
+            </thead>
             <tbody>
               {cases.map((c) => (
-                <tr key={c.id} className="border-b">
+                <tr key={c.id} className="border-b hover:bg-slate-50">
                   <td className="p-3 font-bold text-teal">{c.case_number}</td>
                   <td className="p-3">{c.case_type.replace('_', ' ')}</td>
                   <td className="p-3">{c.current_stage}</td>
@@ -755,35 +1036,45 @@ function HospitalView({ page }: { page: string }) {
     );
   }
 
+  if (page === 'appointments') {
+    return (
+      <>
+        <Title
+          eyebrow="Hospital desk"
+          title="Board Appointments"
+          copy="Accept pending appointments or reschedule based on medical board availability."
+        />
+        {appointmentsTable}
+      </>
+    );
+  }
+
   return (
     <>
       <Title eyebrow="Hospital desk" title="Today's overview" copy="Cases and appointments assigned to your hospital." />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="card"><p className="text-sm font-bold text-slate-600">Total cases</p><p className="mt-1 text-2xl font-black text-navy">{cases.length}</p></div>
-        <div className="card"><p className="text-sm font-bold text-slate-600">Appointments</p><p className="mt-1 text-2xl font-black text-navy">{apts?.length || 0}</p></div>
-        <div className="card"><p className="text-sm font-bold text-slate-600">In progress</p><p className="mt-1 text-2xl font-black text-navy">{cases.filter((c) => c.status === 'in_progress').length}</p></div>
-        <div className="card"><p className="text-sm font-bold text-slate-600">Awaiting citizen</p><p className="mt-1 text-2xl font-black text-navy">{cases.filter((c) => c.status === 'waiting_on_citizen').length}</p></div>
-      </div>
-      {apts && apts.length > 0 && (
-        <div className="card mt-6 overflow-x-auto">
-          <h2 className="mb-4 text-xl font-black text-navy">Appointments</h2>
-          <table className="min-w-full text-left text-sm">
-            <thead><tr className="border-b text-slate-500">
-              <th className="p-3">Number</th><th className="p-3">Date</th><th className="p-3">Time</th><th className="p-3">Status</th>
-            </tr></thead>
-            <tbody>
-              {apts.map((a) => (
-                <tr key={a.id} className="border-b">
-                  <td className="p-3 font-bold">{a.appointment_number}</td>
-                  <td className="p-3">{a.appointment_date}</td>
-                  <td className="p-3">{a.appointment_time}</td>
-                  <td className="p-3">{a.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card">
+          <p className="text-sm font-bold text-slate-600">Total cases</p>
+          <p className="mt-1 text-2xl font-black text-navy">{cases.length}</p>
         </div>
-      )}
+        <div className="card">
+          <p className="text-sm font-bold text-slate-600">Appointments</p>
+          <p className="mt-1 text-2xl font-black text-navy">{apts.length}</p>
+        </div>
+        <div className="card">
+          <p className="text-sm font-bold text-slate-600">Confirmed / In Progress</p>
+          <p className="mt-1 text-2xl font-black text-navy">
+            {apts.filter((a) => a.status === 'confirmed').length}
+          </p>
+        </div>
+        <div className="card">
+          <p className="text-sm font-bold text-slate-600">Pending Action</p>
+          <p className="mt-1 text-2xl font-black text-navy">
+            {apts.filter((a) => a.status === 'booked').length}
+          </p>
+        </div>
+      </div>
+      {appointmentsTable}
     </>
   );
 }
