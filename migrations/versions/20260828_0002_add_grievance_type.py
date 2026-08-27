@@ -17,6 +17,20 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_enum e
+                JOIN pg_type t ON e.enumtypid = t.oid
+                WHERE t.typname = 'role_name' AND e.enumlabel = 'cpgrams_officer'
+            ) THEN
+                ALTER TYPE role_name ADD VALUE 'cpgrams_officer';
+            END IF;
+        END$$;
+        """
+    )
     grievance_type = sa.Enum("cpgrams", "rights_violation", name="grievance_type")
     grievance_type.create(op.get_bind(), checkfirst=True)
     op.add_column(
