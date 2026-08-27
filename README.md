@@ -46,9 +46,11 @@ Optional settings (defaults shown):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_AUTO_CREATE` | `true` | Create tables on startup |
+| `DATABASE_RUN_MIGRATIONS` | `false` | Run Alembic migrations on startup |
 | `DATABASE_AUTO_SEED_DEMO` | `true` | Seed demo users and data |
 | `DATABASE_STARTUP_CHECK` | `true` | Ping database on startup |
 | `DEMO_AUTH_ENABLED` | `true` | Email-only demo login |
+| `CORS_ALLOW_VERCEL` | `true` | Allow `*.vercel.app` origins |
 | `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:8000` | Backend URL for the frontend |
 
 Run migrations (optional if auto-create is enabled):
@@ -144,6 +146,83 @@ Unit tests use an in-memory SQLite database with seeded demo data. Full PostgreS
 | `npm run frontend:dev` | Start Next.js dev server (port 3000) |
 | `npm run frontend:build` | Production build of the frontend |
 | `npm run backend:test` | Run pytest |
+
+## Deploy online (Vercel + Supabase + Render)
+
+This app splits across three free-tier services:
+
+| Service | Hosts | Cost |
+|---------|-------|------|
+| **Frontend** | [Vercel](https://vercel.com) | Free |
+| **Database** | [Supabase](https://supabase.com) (PostgreSQL) | Free |
+| **Backend API** | [Render](https://render.com) | Free |
+
+Deploy in this order: **Supabase → Render → Vercel**.
+
+### 1. Supabase (database)
+
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
+2. Open **Project Settings → Database**.
+3. Copy the **URI** connection string (Session mode, port `5432`).
+4. Replace `[YOUR-PASSWORD]` with your database password.
+5. The app auto-converts `postgresql://` to `postgresql+psycopg://` and adds SSL for Supabase hosts.
+
+Example (yours will differ):
+
+```text
+postgresql+psycopg://postgres.xxxxx:YOUR_PASSWORD@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+### 2. Render (backend API)
+
+1. Push this repo to GitHub if it is not already there.
+2. Go to [dashboard.render.com](https://dashboard.render.com) → **New → Blueprint**.
+3. Connect the **Sahaayak** repository and apply the included `render.yaml`.
+4. When prompted, set **`DATABASE_URL`** to your Supabase URI from step 1.
+5. After deploy, note your API URL (e.g. `https://sahaayak-api.onrender.com`).
+6. Verify: open `https://YOUR-API.onrender.com/api/health/db` — it should return `{"status":"ok"}`.
+
+**Render environment variables** (set in the Render dashboard if not using the blueprint):
+
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | Supabase connection string |
+| `DATABASE_AUTO_CREATE` | `false` |
+| `DATABASE_AUTO_SEED_DEMO` | `true` |
+| `CORS_ALLOW_VERCEL` | `true` |
+| `CORS_ORIGINS` | Your Vercel URL (update after step 3) |
+
+Migrations run automatically on each deploy via `scripts/start-production.sh`.
+
+> **Note:** Render free tier sleeps after ~15 minutes of inactivity. The first request after sleep may take 30–60 seconds.
+
+### 3. Vercel (frontend)
+
+1. Go to [vercel.com/new](https://vercel.com/new) and import the **Sahaayak** GitHub repo.
+2. Set **Root Directory** to `frontend`.
+3. Add environment variable:
+
+   | Name | Value |
+   |------|-------|
+   | `NEXT_PUBLIC_API_URL` | `https://YOUR-API.onrender.com` (no trailing slash) |
+
+4. Deploy. Note your Vercel URL (e.g. `https://sahaayak.vercel.app`).
+
+### 4. Connect frontend and backend
+
+1. In **Render**, update `CORS_ORIGINS` to your exact Vercel URL and redeploy the API.
+2. Open your Vercel URL → `/login` and sign in with `citizen@demo.local`.
+
+The Next.js app proxies browser `/api/*` calls to Render using `NEXT_PUBLIC_API_URL`.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `Failed to fetch` on login | Backend asleep (wait ~60s) or wrong `NEXT_PUBLIC_API_URL` |
+| CORS error in browser | Add your Vercel URL to Render `CORS_ORIGINS` |
+| Database connection failed | Check Supabase password, use Session pooler URI, ensure project is active |
+| Empty data after deploy | Confirm `DATABASE_AUTO_SEED_DEMO=true` on Render; check `/api/health/db` |
 
 ## License
 

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 
-DEFAULT_DATABASE_URL = "postgresql+psycopg://xicom@localhost:5432/disability_navigator"
+DEFAULT_DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/postgres"
 
 
 def get_database_url() -> str:

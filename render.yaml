@@ -1,0 +1,29 @@
+# Render Blueprint — deploy at https://dashboard.render.com/select-repo?type=blueprint
+services:
+  - type: web
+    name: sahaayak-api
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash scripts/start-production.sh
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_AUTO_CREATE
+        value: "false"
+      - key: DATABASE_RUN_MIGRATIONS
+        value: "false"
+      - key: DATABASE_AUTO_SEED_DEMO
+        value: "true"
+      - key: DATABASE_STARTUP_CHECK
+        value: "true"
+      - key: DEMO_AUTH_ENABLED
+        value: "true"
+      - key: CORS_ALLOW_VERCEL
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "https://sahaayak.vercel.app"
