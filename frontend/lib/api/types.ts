@@ -290,7 +290,7 @@ export interface Dashboard {
   disability: DisabilityProfile | null;
   cases: CaseBasic[];
   nextStep: { title: string; date: string; hospital: string; caseId: string } | null;
-  journey: { label: string; status: 'done' | 'current' | 'pending' }[];
+  journey: { label: string; status: 'done' | 'current' | 'pending'; href?: string }[];
   metrics: { label: string; value: string; detail: string }[];
 }
 

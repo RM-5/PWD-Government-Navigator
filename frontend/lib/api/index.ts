@@ -135,18 +135,52 @@ const citizen = {
       }
     }
 
-    // Build journey from real case steps
-    const journey = caseDetail
-      ? caseDetail.steps
-          .sort((a, b) => a.step_order - b.step_order)
-          .map((s) => ({
-            label: s.step_name,
-            status: (s.status === 'completed' ? 'done' : s.status === 'in_progress' ? 'current' : 'pending') as
-              | 'done'
-              | 'current'
-              | 'pending',
-          }))
-      : [];
+    // Build consolidated journey from real case steps
+    let journey: { label: string; status: 'done' | 'current' | 'pending'; href?: string }[] = [];
+    if (caseDetail) {
+      const stepMap = new Map(caseDetail.steps.map((s) => [s.step_name, s]));
+      const getStatus = (stepName: string) => stepMap.get(stepName)?.status;
+
+      const sProfile = getStatus('Profile');
+      const sService = getStatus('Service identified');
+      const sHospital = getStatus('Hospital identified');
+
+      // 4. Medical Assessment (combines Appointment + Medical assessment)
+      const sApt = getStatus('Appointment');
+      const sMed = getStatus('Medical assessment');
+      let sMedAssessment: 'done' | 'current' | 'pending' = 'pending';
+      if (sMed === 'completed') {
+        sMedAssessment = 'done';
+      } else if (sApt === 'in_progress' || sMed === 'in_progress' || sApt === 'completed') {
+        sMedAssessment = 'current';
+      }
+
+      const sCert = getStatus('Certificate');
+      const sBen = getStatus('Benefits');
+
+      // 7. Grievance and Status (combines Grievance + Escalation)
+      const sGrv = getStatus('Grievance');
+      const sEsc = getStatus('Escalation');
+      let sGrvStatus: 'done' | 'current' | 'pending' = 'pending';
+      if (sEsc === 'completed' || sGrv === 'completed') {
+        sGrvStatus = 'done';
+      } else if (sGrv === 'in_progress' || sEsc === 'in_progress') {
+        sGrvStatus = 'current';
+      }
+
+      const toStatus = (st?: string): 'done' | 'current' | 'pending' =>
+        st === 'completed' ? 'done' : st === 'in_progress' ? 'current' : 'pending';
+
+      journey = [
+        { label: 'Profile', status: toStatus(sProfile), href: '/citizen' },
+        { label: 'Service identified', status: toStatus(sService), href: '/citizen/services' },
+        { label: 'Hospital identified', status: toStatus(sHospital), href: '/citizen/medical-assessment' },
+        { label: 'Medical Assessment', status: sMedAssessment, href: '/citizen/medical-assessment' },
+        { label: 'Certificate', status: toStatus(sCert), href: '/citizen/documents' },
+        { label: 'Benefits', status: toStatus(sBen), href: '/citizen/benefits' },
+        { label: 'Grievance and Status', status: sGrvStatus, href: '/citizen/grievance-and-status' },
+      ];
+    }
 
     let assignedHospitalName = '';
     if (activeCase?.assigned_hospital_id) {
