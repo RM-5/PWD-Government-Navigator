@@ -17,6 +17,32 @@ export interface User {
   roles: UserRole[];
 }
 
+export interface WorkflowStep {
+  step: number;
+  key: string;
+  title: string;
+  description: string;
+  status: 'completed' | 'in_progress' | 'pending';
+}
+
+export interface WorkflowProgress {
+  citizen_name: string;
+  case_number: string | null;
+  current_stage: string | null;
+  steps: WorkflowStep[];
+  grievance_note: string;
+}
+
+export interface CitizenJourneyReview {
+  citizen_name: string;
+  citizen_email: string;
+  case_number: string;
+  case_status: string;
+  current_stage: string;
+  steps: WorkflowStep[];
+  reviewer_role: string | null;
+}
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;

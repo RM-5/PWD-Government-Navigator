@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 .env
 .env.local
+.env.example
+frontend/.env.example
 
 # Frontend / Node
 node_modules/

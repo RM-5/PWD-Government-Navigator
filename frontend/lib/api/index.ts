@@ -11,6 +11,7 @@ import type {
   CertificateDecisionCreate,
   CertificateDecisionResult,
   CitizenProfile,
+  CitizenJourneyReview,
   Dashboard,
   DisabilityProfile,
   Document,
@@ -26,11 +27,13 @@ import type {
   Role,
   UdidCardData,
   User,
+  WorkflowProgress,
 } from './types';
 
 /* ── Helpers ── */
 
-const base = process.env.NEXT_PUBLIC_API_URL || '';
+// In the browser, use same-origin /api (proxied by Next.js). On server, call backend directly.
+const base = typeof window !== 'undefined' ? '' : process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -49,10 +52,17 @@ function authHeaders(): Record<string, string> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`${base}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...init?.headers },
-  });
+  let r: Response;
+  try {
+    r = await fetch(`${base}${path}`, {
+      ...init,
+      headers: { ...authHeaders(), ...init?.headers },
+    });
+  } catch {
+    throw new Error(
+      'Cannot reach the backend. Make sure the API is running on port 8000 (npm run backend:dev).'
+    );
+  }
   if (!r.ok) {
     const body = await r.text().catch(() => '');
     throw new Error(`API ${r.status}: ${body || r.statusText}`);
@@ -163,16 +173,7 @@ const citizen = {
 
       const sCert = getStatus('Certificate');
       const sBen = getStatus('Benefits');
-
-      // 7. Grievance and Status (combines Grievance + Escalation)
-      const sGrv = getStatus('Grievance');
-      const sEsc = getStatus('Escalation');
-      let sGrvStatus: 'done' | 'current' | 'pending' = 'pending';
-      if (sEsc === 'completed' || sGrv === 'completed') {
-        sGrvStatus = 'done';
-      } else if (sGrv === 'in_progress' || sEsc === 'in_progress') {
-        sGrvStatus = 'current';
-      }
+      const sPen = getStatus('Pensions');
 
       const toStatus = (st?: string): 'done' | 'current' | 'pending' =>
         st === 'completed' ? 'done' : st === 'in_progress' ? 'current' : 'pending';
@@ -184,7 +185,7 @@ const citizen = {
         { label: 'Medical Assessment', status: sMedAssessment, href: '/citizen/medical-assessment' },
         { label: 'Certificate', status: toStatus(sCert), href: '/citizen/documents' },
         { label: 'Benefits', status: toStatus(sBen), href: '/citizen/benefits' },
-        { label: 'Grievances', status: sGrvStatus, href: '/citizen/cpgrams-grievance' },
+        { label: 'Pensions', status: toStatus(sPen), href: '/citizen/pensions' },
       ];
     }
 
@@ -401,6 +402,12 @@ const notifications_ = {
 const admin = {
   summary: () => get<AdminSummary>('/api/admin/summary'),
   seedDemo: () => post<{ status: string }>('/api/admin/seed-demo'),
+  resetCitizenProgress: () => post<{ status: string; message: string }>('/api/admin/reset-citizen-progress'),
+  citizenJourney: () => get<CitizenJourneyReview>('/api/admin/citizen-journey'),
+};
+
+const demo = {
+  workflowProgress: () => get<WorkflowProgress>('/api/demo/workflow-progress'),
 };
 
 /* ── Certificates & Hospital Assessments ── */
@@ -427,4 +434,5 @@ export const api = {
   services,
   notifications: notifications_,
   admin,
+  demo,
 };

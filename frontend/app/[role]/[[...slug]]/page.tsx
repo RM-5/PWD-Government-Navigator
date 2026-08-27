@@ -24,6 +24,7 @@ import type {
   Notification,
   Role,
   UdidCardData,
+  WorkflowStep,
 } from '@/lib/api/types';
 
 const roles = ['citizen', 'hospital', 'state', 'cpgrams', 'admin'];
@@ -295,14 +296,10 @@ function CaseView({ caseId }: { caseId: string }) {
   const sMed = getStep('Medical assessment');
   const sCert = getStep('Certificate');
   const sBen = getStep('Benefits');
-  const sGrv = getStep('Grievance');
-  const sEsc = getStep('Escalation');
+  const sPen = getStep('Pensions');
 
   const medStatus = sMed?.status === 'completed' ? 'completed' : (sApt?.status === 'in_progress' || sMed?.status === 'in_progress' || sApt?.status === 'completed') ? 'in_progress' : 'not_started';
   const medAction = sMed?.next_action || sApt?.next_action || 'Attend medical board assessment';
-
-  const grvStatus = (sEsc?.status === 'completed' || sGrv?.status === 'completed') ? 'completed' : (sGrv?.status === 'in_progress' || sEsc?.status === 'in_progress') ? 'in_progress' : 'not_started';
-  const grvAction = sGrv?.next_action || sEsc?.next_action || 'Raise or track grievance if delayed';
 
   const consolidatedSteps = [
     { name: 'Profile', status: sProfile?.status || 'not_started', action: sProfile?.next_action, href: '/citizen' },
@@ -311,7 +308,7 @@ function CaseView({ caseId }: { caseId: string }) {
     { name: 'Medical Assessment', status: medStatus, action: medAction, href: '/citizen/medical-assessment' },
     { name: 'Certificate', status: sCert?.status || 'not_started', action: sCert?.next_action, href: '/citizen/documents' },
     { name: 'Benefits', status: sBen?.status || 'not_started', action: sBen?.next_action, href: '/citizen/benefits' },
-    { name: 'Grievances', status: grvStatus, action: grvAction, href: '/citizen/cpgrams-grievance' },
+    { name: 'Pensions', status: sPen?.status || 'not_started', action: sPen?.next_action, href: '/citizen/pensions' },
   ];
 
   return (
@@ -549,6 +546,74 @@ function Benefits() {
         ))}
       </div>
     </>
+  );
+}
+
+/* ── Citizen: Pensions ── */
+
+function Pensions() {
+  const [data, setData] = useState<(Benefit & { eligibility: BenefitEligibility | null })[]>();
+  useEffect(() => {
+    api.benefits.recommendations().then((items) => setData(items.filter((b) => b.category === 'financial_support' || b.name.toLowerCase().includes('pension'))));
+  }, []);
+  if (!data) return <Loading />;
+  return (
+    <>
+      <Title
+        eyebrow="Final workflow step"
+        title="Disability Pension"
+        copy="Pensions are the final step after your certificate and benefits review. Apply once your disability certificate is issued."
+      />
+      <div className="card mb-6 border-l-4 border-l-teal bg-gradient-to-r from-white to-mint/30">
+        <p className="text-sm text-slate-600">
+          If your pension application is delayed or denied, you can file a <b>CPGRAMS grievance</b> at any time from the banner above.
+        </p>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {data.map((b) => (
+          <article className="card" key={b.id}>
+            <span className={`pill ${b.eligibility?.eligible ? 'bg-mint text-teal' : 'bg-amber-100 text-amber-900'}`}>
+              {b.eligibility?.eligible ? 'LIKELY ELIGIBLE' : 'CERTIFICATE REQUIRED'}
+            </span>
+            <h2 className="mt-4 text-xl font-black text-navy">{b.name}</h2>
+            <p className="mt-3 text-sm text-slate-600">{b.description}</p>
+            {b.authority && <p className="mt-3 text-sm"><b>Authority</b><br />{b.authority}</p>}
+          </article>
+        ))}
+        {data.length === 0 && <p className="text-slate-500">Pension schemes will appear here once your profile is complete.</p>}
+      </div>
+    </>
+  );
+}
+
+/* ── Shared: Citizen Journey Review ── */
+
+function CitizenJourneyReview() {
+  const [journey, setJourney] = useState<{ citizen_name: string; citizen_email: string; case_number: string; current_stage: string; steps: WorkflowStep[] }>();
+  useEffect(() => {
+    api.admin.citizenJourney().then(setJourney).catch(() => setJourney(undefined));
+  }, []);
+  if (!journey) return null;
+  return (
+    <section className="card mt-6">
+      <h2 className="text-xl font-black text-navy">Citizen journey review</h2>
+      <p className="mt-2 text-sm text-slate-600">
+        {journey.citizen_name} ({journey.citizen_email}) · {journey.case_number} · Stage: {journey.current_stage}
+      </p>
+      <ol className="mt-4 space-y-3">
+        {journey.steps.map((step) => (
+          <li key={step.key} className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
+            <span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${step.status === 'completed' ? 'bg-mint text-teal' : step.status === 'in_progress' ? 'bg-teal text-white' : 'bg-slate-200 text-slate-500'}`}>
+              {step.status === 'completed' ? '✓' : step.step}
+            </span>
+            <div>
+              <p className="font-semibold text-navy">{step.title}</p>
+              <p className="text-xs text-slate-500">{step.status.replace('_', ' ')}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -1591,6 +1656,7 @@ function HospitalView({ page }: { page: string }) {
       </div>
 
       {appointmentsTable}
+      <CitizenJourneyReview />
     </>
   );
 }
@@ -1661,6 +1727,7 @@ function CpgramsView({ page }: { page: string }) {
         <div className="card"><p className="text-sm font-bold text-slate-600">Acknowledged</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'acknowledged').length}</p></div>
         <div className="card"><p className="text-sm font-bold text-slate-600">Action Taken</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'action_taken').length}</p></div>
       </div>
+      <CitizenJourneyReview />
     </>
   );
 }
@@ -1728,6 +1795,7 @@ function StateView({ page }: { page: string }) {
         <div className="card"><p className="text-sm font-bold text-slate-600">Cases</p><p className="mt-1 text-2xl font-black text-navy">{cases?.length || 0}</p></div>
         <div className="card"><p className="text-sm font-bold text-slate-600">Action taken</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'action_taken').length}</p></div>
       </div>
+      <CitizenJourneyReview />
     </>
   );
 }
@@ -1736,6 +1804,7 @@ function StateView({ page }: { page: string }) {
 
 function AdminView({ page }: { page: string }) {
   const [summary, setSummary] = useState<AdminSummary>();
+  const [resetting, setResetting] = useState(false);
   useEffect(() => {
     api.admin.summary().then(setSummary);
   }, []);
@@ -1751,12 +1820,34 @@ function AdminView({ page }: { page: string }) {
           </div>
         ))}
       </div>
-      <div className="card mt-6 max-w-md">
-        <h2 className="font-black text-navy">Actions</h2>
-        <button onClick={() => api.admin.seedDemo().then(() => alert('Demo data reloaded'))} className="btn mt-4">
-          Re-seed demo data
-        </button>
+      <div className="card mt-6 max-w-2xl">
+        <h2 className="font-black text-navy">Demo actions</h2>
+        <p className="mt-2 text-sm text-slate-600">
+          Reset Rahul Sharma&apos;s citizen journey to the beginning. Grievances remain available for CPGRAMS and State representatives to review.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            onClick={async () => {
+              setResetting(true);
+              try {
+                const res = await api.admin.resetCitizenProgress();
+                alert(res.message);
+              } catch (e: any) {
+                alert(e.message);
+              }
+              setResetting(false);
+            }}
+            disabled={resetting}
+            className="btn"
+          >
+            {resetting ? 'Resetting…' : 'Reset Rahul Sharma progress'}
+          </button>
+          <button onClick={() => api.admin.seedDemo().then(() => alert('Demo data reloaded'))} className="rounded-xl border px-4 py-2 font-bold text-navy">
+            Re-seed demo data
+          </button>
+        </div>
       </div>
+      <CitizenJourneyReview />
     </>
   );
 }
@@ -1787,6 +1878,7 @@ export default function PortalPage() {
     else if (page === 'cases') content = <CitizenHome />;
     else if (page === 'appointments' || page === 'medical-assessment') content = <MedicalAssessment />;
     else if (page === 'benefits') content = <Benefits />;
+    else if (page === 'pensions') content = <Pensions />;
     else if (page === 'grievances' || page === 'grievance-and-status') content = <CpgramsGrievance />;
     else if (page === 'cpgrams-grievance') content = <CpgramsGrievance />;
     else if (page === 'rights-grievance') content = <RightsViolationGrievance />;

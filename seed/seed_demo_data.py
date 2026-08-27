@@ -55,6 +55,7 @@ from models.schema import (
     UserRole,
     VerificationStatus,
 )
+from seed.citizen_journey import DEMO_PROGRESS_STEPS, apply_case_steps
 
 NAMESPACE = uuid.UUID("85bc37aa-7429-4576-bdc6-5d18c560d9f1")
 
@@ -280,31 +281,10 @@ def seed(session: Session) -> None:
     add_if_missing(session, case)
     session.flush()
 
-    steps = [
-        ("Profile", StepStatus.completed, "Citizen profile verified", "Platform"),
-        ("Service identified", StepStatus.completed, "Disability certificate service matched", "Platform"),
-        ("Hospital identified", StepStatus.completed, "Delhi Government Hospital selected", "Platform"),
-        ("Appointment", StepStatus.in_progress, "Attend assessment appointment", "Hospital"),
-        ("Medical assessment", StepStatus.not_started, "Medical board assessment pending", "Hospital"),
-        ("Certificate", StepStatus.not_started, "Certificate decision pending", "Hospital"),
-        ("Benefits", StepStatus.not_started, "Discover eligible schemes after certificate update", "Platform"),
-        ("Grievance", StepStatus.not_started, "Available if case is delayed", "State Office"),
-        ("Escalation", StepStatus.not_started, "Escalate if grievance remains unresolved", "State Office"),
-    ]
-    for order, (name, status, next_action, authority) in enumerate(steps, start=1):
-        add_if_missing(
-            session,
-            CaseStep(
-                id=demo_id(f"case-step:{order}:{name}"),
-                case_id=case.id,
-                step_name=name,
-                step_order=order,
-                status=status,
-                completed_at=datetime(2026, 8, 25, 9, order, tzinfo=timezone.utc) if status == StepStatus.completed else None,
-                next_action=next_action,
-                responsible_authority=authority,
-            ),
-        )
+    existing_steps = session.scalars(select(CaseStep).where(CaseStep.case_id == case.id)).all()
+    step_names = [step.step_name for step in existing_steps]
+    if not existing_steps or "Grievance" in step_names or "Escalation" in step_names or "Pensions" not in step_names:
+        apply_case_steps(session, case, DEMO_PROGRESS_STEPS)
 
     add_if_missing(session, CaseEvent(id=demo_id("case-event:created"), case_id=case.id, actor_user_id=users["citizen"].id, event_type="case_created", description="Rahul started a mock disability certificate journey."))
     add_if_missing(session, CaseEvent(id=demo_id("case-event:hospital-assigned"), case_id=case.id, actor_user_id=users["admin"].id, event_type="hospital_assigned", description="Delhi Government Hospital assigned for ophthalmology board assessment."))
