@@ -84,6 +84,7 @@ const auth = {
         citizen: 'citizen',
         hospital_staff: 'hospital',
         state_representative: 'state',
+        cpgrams_officer: 'cpgrams',
         admin: 'admin',
       };
       localStorage.setItem('demo-role', roleMap[role] || 'citizen');
@@ -183,7 +184,7 @@ const citizen = {
         { label: 'Medical Assessment', status: sMedAssessment, href: '/citizen/medical-assessment' },
         { label: 'Certificate', status: toStatus(sCert), href: '/citizen/documents' },
         { label: 'Benefits', status: toStatus(sBen), href: '/citizen/benefits' },
-        { label: 'Grievance and Status', status: sGrvStatus, href: '/citizen/grievance-and-status' },
+        { label: 'Grievances', status: sGrvStatus, href: '/citizen/cpgrams-grievance' },
       ];
     }
 
@@ -343,10 +344,18 @@ const documents = {
 /* ── Grievances ── */
 
 const grievances = {
-  list: () => get<Grievance[]>('/api/grievances'),
+  list: (type?: 'cpgrams' | 'rights_violation') => {
+    const qs = type ? `?grievance_type=${type}` : '';
+    return get<Grievance[]>(`/api/grievances${qs}`);
+  },
   get: (id: string) => get<Grievance>(`/api/grievances/${id}`),
-  create: (data: { case_id?: string; category: string; subject: string; description: string }) =>
-    post<Grievance>('/api/grievances', data),
+  create: (data: {
+    case_id?: string;
+    category: string;
+    subject: string;
+    description: string;
+    grievance_type: 'cpgrams' | 'rights_violation';
+  }) => post<Grievance>('/api/grievances', data),
   updateStatus: (id: string, data: { status: string; message?: string }) =>
     patch<Grievance>(`/api/grievances/${id}/status`, data),
 };
