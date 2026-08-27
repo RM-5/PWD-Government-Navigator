@@ -35,6 +35,7 @@ from models.schema import (
     Grievance,
     GrievanceAction,
     GrievanceStatus,
+    GrievanceType,
     Hospital,
     HospitalDepartment,
     HospitalStaff,
@@ -72,6 +73,7 @@ def seed(session: Session) -> None:
         RoleName.citizen: demo_id("role:citizen"),
         RoleName.hospital_staff: demo_id("role:hospital_staff"),
         RoleName.state_representative: demo_id("role:state_representative"),
+        RoleName.cpgrams_officer: demo_id("role:cpgrams_officer"),
         RoleName.admin: demo_id("role:admin"),
     }
     for name, role_id in roles.items():
@@ -81,6 +83,7 @@ def seed(session: Session) -> None:
         "citizen": User(id=demo_id("user:citizen"), email="citizen@demo.local", password_hash="mock-hash-citizen", full_name="Rahul Sharma", phone="+91-9876500001"),
         "hospital": User(id=demo_id("user:hospital"), email="hospital@demo.local", password_hash="mock-hash-hospital", full_name="Dr. Ananya Mehta", phone="+91-9876500002"),
         "state": User(id=demo_id("user:state"), email="state@demo.local", password_hash="mock-hash-state", full_name="Meera Iyer", phone="+91-9876500003"),
+        "cpgrams": User(id=demo_id("user:cpgrams"), email="cpgrams@demo.local", password_hash="mock-hash-cpgrams", full_name="Rajesh Kumar", phone="+91-9876500005"),
         "admin": User(id=demo_id("user:admin"), email="admin@demo.local", password_hash="mock-hash-admin", full_name="Platform Admin", phone="+91-9876500004"),
     }
     for user in users.values():
@@ -91,6 +94,7 @@ def seed(session: Session) -> None:
         ("citizen", RoleName.citizen),
         ("hospital", RoleName.hospital_staff),
         ("state", RoleName.state_representative),
+        ("cpgrams", RoleName.cpgrams_officer),
         ("admin", RoleName.admin),
     ]:
         key = {"user_id": users[user_key].id, "role_id": roles[role_name]}
@@ -373,13 +377,30 @@ def seed(session: Session) -> None:
         case_id=case.id,
         category="appointment_delay",
         subject="Delay concern for medical board assessment",
-        description="Mock grievance showing how a citizen can request help if assessment is delayed.",
+        description="My disability certificate application has not been processed for over 3 weeks. The hospital assessment was completed but no update on UDID issuance.",
+        grievance_type=GrievanceType.cpgrams,
         status=GrievanceStatus.acknowledged,
-        assigned_state_office_id=state_office.id,
+        assigned_state_office_id=None,
     )
     add_if_missing(session, grievance)
     session.flush()
-    add_if_missing(session, GrievanceAction(id=demo_id("grievance-action:acknowledged"), grievance_id=grievance.id, actor_user_id=users["state"].id, action_type="acknowledged", message="State representative acknowledged the demo grievance and requested hospital status."))
+    add_if_missing(session, GrievanceAction(id=demo_id("grievance-action:acknowledged"), grievance_id=grievance.id, actor_user_id=users["cpgrams"].id, action_type="acknowledged", message="CPGRAMS officer acknowledged the grievance and forwarded to the concerned department."))
+
+    rights_grievance = Grievance(
+        id=demo_id("grievance:rahul-rights"),
+        grievance_number="GRV-2026-00032",
+        citizen_id=citizen.id,
+        case_id=case.id,
+        category="accessibility_denial",
+        subject="Denied wheelchair access at assessment centre",
+        description="I was denied wheelchair-accessible entry at the medical board assessment centre, violating my rights under the Rights of Persons with Disabilities Act, 2016.",
+        grievance_type=GrievanceType.rights_violation,
+        status=GrievanceStatus.under_review,
+        assigned_state_office_id=state_office.id,
+    )
+    add_if_missing(session, rights_grievance)
+    session.flush()
+    add_if_missing(session, GrievanceAction(id=demo_id("grievance-action:rights-review"), grievance_id=rights_grievance.id, actor_user_id=users["state"].id, action_type="under_review", message="State Commissioner office is reviewing the rights violation complaint."))
 
     add_if_missing(session, NgoAssistanceRequest(id=demo_id("ngo-request:rahul-vision-access"), citizen_id=citizen.id, ngo_id=demo_id("ngo:1:Vision Access Foundation"), assistance_type="appointment_preparation", description="Rahul requested help preparing documents for the hospital appointment.", status=AssistanceStatus.requested))
     add_if_missing(session, Notification(id=demo_id("notification:rahul-appointment"), user_id=users["citizen"].id, title="Appointment confirmed", body="Your mock medical board appointment is confirmed at Delhi Government Hospital.", notification_type="appointment"))

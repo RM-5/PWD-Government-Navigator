@@ -1,6 +1,6 @@
 /* ── Backend response types matching FastAPI Pydantic schemas ── */
 
-export type Role = 'citizen' | 'hospital' | 'state' | 'admin';
+export type Role = 'citizen' | 'hospital' | 'state' | 'cpgrams' | 'admin';
 
 /* ── Auth ── */
 export interface UserRole {
@@ -206,6 +206,7 @@ export interface Grievance {
   category: string;
   subject: string;
   description: string;
+  grievance_type: 'cpgrams' | 'rights_violation';
   status: string;
   assigned_state_office_id: string | null;
   resolved_at: string | null;

@@ -12,7 +12,8 @@ const nav: Record<Role, string[][]> = {
     ['Medical Assessment', '/citizen/medical-assessment'],
     ['Documents', '/citizen/documents'],
     ['Benefits', '/citizen/benefits'],
-    ['Grievance and Status', '/citizen/grievance-and-status'],
+    ['CPGRAMS Grievance', '/citizen/cpgrams-grievance'],
+    ['Rights Violation', '/citizen/rights-grievance'],
     ['NGOs', '/citizen/ngos'],
     ['Notifications', '/citizen/notifications'],
   ],
@@ -22,9 +23,13 @@ const nav: Record<Role, string[][]> = {
     ['Certificates', '/hospital/certificates'],
     ['Cases', '/hospital/cases'],
   ],
+  cpgrams: [
+    ['Dashboard', '/cpgrams'],
+    ['Grievance Queue', '/cpgrams/grievances'],
+  ],
   state: [
     ['Dashboard', '/state'],
-    ['Grievances', '/state/grievances'],
+    ['Rights Violations', '/state/grievances'],
   ],
   admin: [
     ['Overview', '/admin'],
@@ -65,7 +70,9 @@ export function PortalShell({ role, children }: { role: Role; children: React.Re
     role === 'citizen'
       ? 'Sahaayak'
       : role === 'state'
-      ? 'State Office'
+      ? 'State Commissioner'
+      : role === 'cpgrams'
+      ? 'CPGRAMS Desk'
       : role === 'hospital'
       ? 'Hospital Desk'
       : 'Operations';
@@ -135,7 +142,7 @@ export function PortalShell({ role, children }: { role: Role; children: React.Re
               const isActive =
                 path === href ||
                 (href === '/citizen/medical-assessment' && path === '/citizen/appointments') ||
-                (href === '/citizen/grievance-and-status' && path === '/citizen/grievances');
+                (href === '/citizen/cpgrams-grievance' && (path === '/citizen/grievance-and-status' || path === '/citizen/grievances'));
               return (
                 <Link
                   key={href}

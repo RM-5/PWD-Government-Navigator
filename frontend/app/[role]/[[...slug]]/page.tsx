@@ -26,7 +26,7 @@ import type {
   UdidCardData,
 } from '@/lib/api/types';
 
-const roles = ['citizen', 'hospital', 'state', 'admin'];
+const roles = ['citizen', 'hospital', 'state', 'cpgrams', 'admin'];
 
 /* ── Shared Components ── */
 
@@ -311,7 +311,7 @@ function CaseView({ caseId }: { caseId: string }) {
     { name: 'Medical Assessment', status: medStatus, action: medAction, href: '/citizen/medical-assessment' },
     { name: 'Certificate', status: sCert?.status || 'not_started', action: sCert?.next_action, href: '/citizen/documents' },
     { name: 'Benefits', status: sBen?.status || 'not_started', action: sBen?.next_action, href: '/citizen/benefits' },
-    { name: 'Grievance and Status', status: grvStatus, action: grvAction, href: '/citizen/grievance-and-status' },
+    { name: 'Grievances', status: grvStatus, action: grvAction, href: '/citizen/cpgrams-grievance' },
   ];
 
   return (
@@ -552,118 +552,70 @@ function Benefits() {
   );
 }
 
-/* ── Citizen: Grievance & Status ── */
+/* ── Citizen: CPGRAMS Grievance ── */
 
-function GrievanceAndStatus() {
+function CpgramsGrievance() {
   const [list, setList] = useState<Grievance[]>();
-  const [category, setCategory] = useState('general');
+  const [category, setCategory] = useState('application_delay');
   const [subject, setSubject] = useState('');
   const [desc, setDesc] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [escalatingId, setEscalatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    api.grievances.list().then(setList);
+    api.grievances.list('cpgrams').then(setList);
   }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.grievances.create({ category, subject, description: desc });
+      await api.grievances.create({ category, subject, description: desc, grievance_type: 'cpgrams' });
       setSubject('');
       setDesc('');
-      setCategory('general');
-      api.grievances.list().then(setList);
+      setCategory('application_delay');
+      api.grievances.list('cpgrams').then(setList);
     } catch (e: any) {
       alert(e.message);
     }
     setSubmitting(false);
   };
 
-  const escalateGrievance = async (grievanceId: string) => {
-    setEscalatingId(grievanceId);
-    try {
-      await api.grievances.updateStatus(grievanceId, {
-        status: 'escalated',
-        message: 'Escalated by citizen to State Representative due to delay.',
-      });
-      api.grievances.list().then(setList);
-    } catch (e: any) {
-      alert(e.message);
-    }
-    setEscalatingId(null);
-  };
-
   return (
     <>
       <Title
-        eyebrow="Support and resolution"
-        title="Grievance & Status"
-        copy="Monitor submitted grievances, review actions taken by state representatives, track escalation status, or submit a new grievance."
+        eyebrow="CPGRAMS — Centralized Public Grievance Redressal"
+        title="Service Grievances"
+        copy="File complaints about application delays, certificate processing, benefit issues, or other government service problems."
       />
 
-      {/* Escalation Authority & Notice Card */}
-      <div className="card mb-6 border-l-4 border-l-teal bg-gradient-to-r from-white to-mint/30">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <span className="pill bg-mint text-teal font-bold">ESCALATION FRAMEWORK</span>
-            <h2 className="mt-2 text-xl font-black text-navy">Disability Grievance Redressal</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Grievances are initially reviewed by the <b>State Representative</b>. Unresolved cases can be escalated to the <b>State Representative Escalation Cell</b>.
-            </p>
-          </div>
-        </div>
+      <div className="card mb-6 border-l-4 border-l-blue-500 bg-gradient-to-r from-white to-blue-50/30">
+        <span className="pill bg-blue-100 text-blue-800 font-bold">CPGRAMS PORTAL</span>
+        <h2 className="mt-2 text-xl font-black text-navy">General Service Grievances</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Use this portal when your <b>application has not been processed</b>, your certificate is delayed, or you face issues with benefit applications. These grievances are handled by a <b>CPGRAMS officer</b>.
+        </p>
       </div>
 
-      {/* Grievance List */}
       <div className="space-y-4">
-        <h2 className="text-xl font-black text-navy">Filed grievances & tracking</h2>
-        {list?.length === 0 && <p className="text-sm text-slate-500">No grievances filed yet.</p>}
+        <h2 className="text-xl font-black text-navy">Your CPGRAMS grievances</h2>
+        {list?.length === 0 && <p className="text-sm text-slate-500">No CPGRAMS grievances filed yet.</p>}
         {list?.map((g) => (
           <div key={g.id} className="card max-w-3xl">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span
-                  className={`pill ${
-                    g.status === 'resolved' || g.status === 'action_taken'
-                      ? 'bg-mint text-teal'
-                      : g.status === 'escalated'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-amber-100 text-amber-900'
-                  }`}
-                >
-                  {g.status.replace('_', ' ').toUpperCase()}
-                </span>
-                <span className="text-sm font-semibold text-slate-500">{g.grievance_number}</span>
-              </div>
-              {g.status !== 'escalated' && g.status !== 'resolved' && (
-                <button
-                  onClick={() => escalateGrievance(g.id)}
-                  disabled={escalatingId === g.id}
-                  className="rounded-lg border border-amber-600 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100"
-                >
-                  {escalatingId === g.id ? 'Escalating…' : 'Escalate to State Representative ↗'}
-                </button>
-              )}
+            <div className="flex items-center gap-3">
+              <span className={`pill ${g.status === 'closed' || g.status === 'action_taken' ? 'bg-mint text-teal' : 'bg-amber-100 text-amber-900'}`}>
+                {g.status.replace('_', ' ').toUpperCase()}
+              </span>
+              <span className="text-sm font-semibold text-slate-500">{g.grievance_number}</span>
             </div>
-
             <h3 className="mt-3 text-xl font-black text-navy">{g.subject}</h3>
             <p className="mt-2 text-slate-600">{g.description}</p>
-
-            {/* Actions Timeline */}
             {g.actions?.length > 0 && (
               <div className="mt-4 space-y-2 border-t pt-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Official Action History</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Action History</p>
                 {g.actions.map((a) => (
                   <div key={a.id} className="text-sm rounded-lg bg-slate-50 p-2.5">
                     <span className="font-bold text-teal">{a.action_type.replace('_', ' ')}</span>
                     {a.message && <span className="text-slate-600"> — {a.message}</span>}
-                    {a.created_at && (
-                      <p className="mt-1 text-xs text-slate-400">
-                        {new Date(a.created_at).toLocaleString('en-IN')}
-                      </p>
-                    )}
                   </div>
                 ))}
               </div>
@@ -672,53 +624,128 @@ function GrievanceAndStatus() {
         ))}
       </div>
 
-      {/* Lodge a New Grievance Form */}
       <form onSubmit={submit} className="card mt-8 max-w-3xl">
-        <h2 className="font-black text-navy">Lodge a new grievance</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          File a complaint regarding delays in assessment, issue with UDID/Certificate, or benefit processing.
-        </p>
-
+        <h2 className="font-black text-navy">File a CPGRAMS grievance</h2>
+        <p className="mt-1 text-sm text-slate-600">Report service delays, unprocessed applications, or certificate/benefit issues.</p>
         <label className="label mt-4 block">
           <span className="font-bold text-slate-700">Category</span>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="mt-2 w-full rounded-xl border p-3 bg-white"
-          >
-            <option value="general">General Query / Issue</option>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="mt-2 w-full rounded-xl border p-3 bg-white">
+            <option value="application_delay">Application Not Processed</option>
             <option value="appointment_delay">Medical Assessment Delay</option>
             <option value="certificate_issue">Disability Certificate / UDID Issue</option>
             <option value="benefit_denial">Benefit Application Concern</option>
             <option value="hospital_conduct">Hospital / Assessment Board Feedback</option>
           </select>
         </label>
-
         <label className="label mt-4 block">
           <span className="font-bold text-slate-700">Subject</span>
-          <input
-            required
-            placeholder="e.g. Delay in medical board assessment"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="mt-2 w-full rounded-xl border p-3"
-          />
+          <input required placeholder="e.g. My application has not been processed" value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-2 w-full rounded-xl border p-3" />
         </label>
-
         <label className="label mt-4 block">
           <span className="font-bold text-slate-700">Description</span>
-          <textarea
-            required
-            placeholder="Provide details about the issue, dates, and what assistance is needed..."
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-            className="mt-2 min-h-24 w-full rounded-xl border p-3"
-          />
+          <textarea required placeholder="Describe the issue, dates, and what assistance you need..." value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border p-3" />
         </label>
+        <button className="btn mt-4" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit to CPGRAMS'}</button>
+      </form>
+    </>
+  );
+}
 
-        <button className="btn mt-4" disabled={submitting}>
-          {submitting ? 'Submitting…' : 'Submit grievance'}
-        </button>
+/* ── Citizen: Rights Violation Grievance ── */
+
+function RightsViolationGrievance() {
+  const [list, setList] = useState<Grievance[]>();
+  const [category, setCategory] = useState('accessibility_denial');
+  const [subject, setSubject] = useState('');
+  const [desc, setDesc] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    api.grievances.list('rights_violation').then(setList);
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.grievances.create({ category, subject, description: desc, grievance_type: 'rights_violation' });
+      setSubject('');
+      setDesc('');
+      setCategory('accessibility_denial');
+      api.grievances.list('rights_violation').then(setList);
+    } catch (e: any) {
+      alert(e.message);
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <>
+      <Title
+        eyebrow="State Commissioner for Persons with Disabilities"
+        title="Rights Violation Complaints"
+        copy="Report violations of your rights under the Rights of Persons with Disabilities Act, 2016."
+      />
+
+      <div className="card mb-6 border-l-4 border-l-red-500 bg-gradient-to-r from-white to-red-50/30">
+        <span className="pill bg-red-100 text-red-800 font-bold">RIGHTS PROTECTION</span>
+        <h2 className="mt-2 text-xl font-black text-navy">Disability Rights Violations</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Use this portal when your <b>rights as a person with disability are being violated</b> — denied accessibility, discrimination, harassment, or denial of reasonable accommodation. These complaints go to the <b>State Commissioner</b>.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-black text-navy">Your rights violation complaints</h2>
+        {list?.length === 0 && <p className="text-sm text-slate-500">No rights violation complaints filed yet.</p>}
+        {list?.map((g) => (
+          <div key={g.id} className="card max-w-3xl">
+            <div className="flex items-center gap-3">
+              <span className={`pill ${g.status === 'closed' ? 'bg-mint text-teal' : g.status === 'under_review' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-900'}`}>
+                {g.status.replace('_', ' ').toUpperCase()}
+              </span>
+              <span className="text-sm font-semibold text-slate-500">{g.grievance_number}</span>
+            </div>
+            <h3 className="mt-3 text-xl font-black text-navy">{g.subject}</h3>
+            <p className="mt-2 text-slate-600">{g.description}</p>
+            {g.actions?.length > 0 && (
+              <div className="mt-4 space-y-2 border-t pt-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Action History</p>
+                {g.actions.map((a) => (
+                  <div key={a.id} className="text-sm rounded-lg bg-slate-50 p-2.5">
+                    <span className="font-bold text-teal">{a.action_type.replace('_', ' ')}</span>
+                    {a.message && <span className="text-slate-600"> — {a.message}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={submit} className="card mt-8 max-w-3xl">
+        <h2 className="font-black text-navy">File a rights violation complaint</h2>
+        <p className="mt-1 text-sm text-slate-600">Report discrimination, denied accessibility, or violations of your rights under the RPwD Act.</p>
+        <label className="label mt-4 block">
+          <span className="font-bold text-slate-700">Category</span>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="mt-2 w-full rounded-xl border p-3 bg-white">
+            <option value="accessibility_denial">Denied Accessibility / Barrier</option>
+            <option value="discrimination">Discrimination</option>
+            <option value="harassment">Harassment or Abuse</option>
+            <option value="reasonable_accommodation">Denied Reasonable Accommodation</option>
+            <option value="education_rights">Education Rights Violation</option>
+            <option value="employment_rights">Employment Rights Violation</option>
+          </select>
+        </label>
+        <label className="label mt-4 block">
+          <span className="font-bold text-slate-700">Subject</span>
+          <input required placeholder="e.g. Denied wheelchair access at assessment centre" value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-2 w-full rounded-xl border p-3" />
+        </label>
+        <label className="label mt-4 block">
+          <span className="font-bold text-slate-700">Description</span>
+          <textarea required placeholder="Describe the rights violation, when it occurred, and who was involved..." value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border p-3" />
+        </label>
+        <button className="btn mt-4 bg-red-700 hover:bg-red-800" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit to State Commissioner'}</button>
       </form>
     </>
   );
@@ -1568,21 +1595,34 @@ function HospitalView({ page }: { page: string }) {
   );
 }
 
-/* ── State Representative View ── */
+/* ── CPGRAMS Officer View ── */
 
-function StateView({ page }: { page: string }) {
+function CpgramsView({ page }: { page: string }) {
   const [grievances, setGrievances] = useState<Grievance[]>();
-  const [cases, setCases] = useState<CaseBasic[]>();
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
   useEffect(() => {
-    api.grievances.list().then(setGrievances);
-    api.cases.list().then(setCases);
+    api.grievances.list('cpgrams').then(setGrievances);
   }, []);
+
+  const updateStatus = async (id: string, status: string, message: string) => {
+    setUpdatingId(id);
+    try {
+      await api.grievances.updateStatus(id, { status, message });
+      api.grievances.list('cpgrams').then(setGrievances);
+    } catch (e: any) {
+      alert(e.message);
+    }
+    setUpdatingId(null);
+  };
+
   if (!grievances) return <Loading />;
 
   if (page === 'grievances') {
     return (
       <>
-        <Title eyebrow="State office" title="Grievance queue" copy="Grievances assigned to your state office." />
+        <Title eyebrow="CPGRAMS" title="Grievance Queue" copy="Service grievances assigned to CPGRAMS for resolution." />
+        {grievances.length === 0 && <p className="text-sm text-slate-500">No grievances in queue.</p>}
         {grievances.map((g) => (
           <div key={g.id} className="card mb-4 max-w-3xl">
             <div className="flex items-center gap-3">
@@ -1591,6 +1631,21 @@ function StateView({ page }: { page: string }) {
             </div>
             <h2 className="mt-3 font-black text-navy">{g.subject}</h2>
             <p className="mt-2 text-sm text-slate-600">{g.description}</p>
+            {g.status === 'submitted' && (
+              <button onClick={() => updateStatus(g.id, 'acknowledged', 'Grievance acknowledged by CPGRAMS officer.')} disabled={updatingId === g.id} className="btn mt-4 text-xs">
+                {updatingId === g.id ? 'Updating…' : 'Acknowledge'}
+              </button>
+            )}
+            {g.status === 'acknowledged' && (
+              <button onClick={() => updateStatus(g.id, 'under_review', 'Forwarded to concerned department for review.')} disabled={updatingId === g.id} className="btn mt-4 text-xs">
+                {updatingId === g.id ? 'Updating…' : 'Forward for Review'}
+              </button>
+            )}
+            {g.status === 'under_review' && (
+              <button onClick={() => updateStatus(g.id, 'action_taken', 'Action taken on the grievance. Citizen notified.')} disabled={updatingId === g.id} className="btn mt-4 text-xs">
+                {updatingId === g.id ? 'Updating…' : 'Mark Action Taken'}
+              </button>
+            )}
           </div>
         ))}
       </>
@@ -1599,12 +1654,79 @@ function StateView({ page }: { page: string }) {
 
   return (
     <>
-      <Title eyebrow="State office" title="State Representative Dashboard" copy="Overview of cases and grievances." />
+      <Title eyebrow="CPGRAMS" title="CPGRAMS Officer Dashboard" copy="Overview of service grievances routed through CPGRAMS." />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="card"><p className="text-sm font-bold text-slate-600">Open grievances</p><p className="mt-1 text-2xl font-black text-navy">{grievances.length}</p></div>
+        <div className="card"><p className="text-sm font-bold text-slate-600">Total grievances</p><p className="mt-1 text-2xl font-black text-navy">{grievances.length}</p></div>
+        <div className="card"><p className="text-sm font-bold text-slate-600">Submitted</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'submitted').length}</p></div>
         <div className="card"><p className="text-sm font-bold text-slate-600">Acknowledged</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'acknowledged').length}</p></div>
+        <div className="card"><p className="text-sm font-bold text-slate-600">Action Taken</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'action_taken').length}</p></div>
+      </div>
+    </>
+  );
+}
+
+/* ── State Representative View ── */
+
+function StateView({ page }: { page: string }) {
+  const [grievances, setGrievances] = useState<Grievance[]>();
+  const [cases, setCases] = useState<CaseBasic[]>();
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.grievances.list('rights_violation').then(setGrievances);
+    api.cases.list().then(setCases);
+  }, []);
+
+  const updateStatus = async (id: string, status: string, message: string) => {
+    setUpdatingId(id);
+    try {
+      await api.grievances.updateStatus(id, { status, message });
+      api.grievances.list('rights_violation').then(setGrievances);
+    } catch (e: any) {
+      alert(e.message);
+    }
+    setUpdatingId(null);
+  };
+
+  if (!grievances) return <Loading />;
+
+  if (page === 'grievances') {
+    return (
+      <>
+        <Title eyebrow="State Commissioner" title="Rights Violation Queue" copy="Complaints about disability rights violations under the RPwD Act, 2016." />
+        {grievances.length === 0 && <p className="text-sm text-slate-500">No rights violation complaints.</p>}
+        {grievances.map((g) => (
+          <div key={g.id} className="card mb-4 max-w-3xl">
+            <div className="flex items-center gap-3">
+              <span className="pill bg-red-100 text-red-800">{g.status.replace('_', ' ')}</span>
+              <span className="text-sm text-slate-500">{g.grievance_number}</span>
+            </div>
+            <h2 className="mt-3 font-black text-navy">{g.subject}</h2>
+            <p className="mt-2 text-sm text-slate-600">{g.description}</p>
+            {g.status === 'submitted' && (
+              <button onClick={() => updateStatus(g.id, 'under_review', 'Rights violation complaint under review by State Commissioner.')} disabled={updatingId === g.id} className="btn mt-4 text-xs">
+                {updatingId === g.id ? 'Updating…' : 'Begin Review'}
+              </button>
+            )}
+            {g.status === 'under_review' && (
+              <button onClick={() => updateStatus(g.id, 'action_taken', 'Investigation completed. Corrective action initiated.')} disabled={updatingId === g.id} className="btn mt-4 text-xs">
+                {updatingId === g.id ? 'Updating…' : 'Take Action'}
+              </button>
+            )}
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Title eyebrow="State Commissioner" title="State Representative Dashboard" copy="Overview of rights violation complaints and assigned cases." />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="card"><p className="text-sm font-bold text-slate-600">Rights complaints</p><p className="mt-1 text-2xl font-black text-navy">{grievances.length}</p></div>
+        <div className="card"><p className="text-sm font-bold text-slate-600">Under review</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'under_review').length}</p></div>
         <div className="card"><p className="text-sm font-bold text-slate-600">Cases</p><p className="mt-1 text-2xl font-black text-navy">{cases?.length || 0}</p></div>
-        <div className="card"><p className="text-sm font-bold text-slate-600">Escalated</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'escalated').length}</p></div>
+        <div className="card"><p className="text-sm font-bold text-slate-600">Action taken</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'action_taken').length}</p></div>
       </div>
     </>
   );
@@ -1665,13 +1787,17 @@ export default function PortalPage() {
     else if (page === 'cases') content = <CitizenHome />;
     else if (page === 'appointments' || page === 'medical-assessment') content = <MedicalAssessment />;
     else if (page === 'benefits') content = <Benefits />;
-    else if (page === 'grievances' || page === 'grievance-and-status') content = <GrievanceAndStatus />;
+    else if (page === 'grievances' || page === 'grievance-and-status') content = <CpgramsGrievance />;
+    else if (page === 'cpgrams-grievance') content = <CpgramsGrievance />;
+    else if (page === 'rights-grievance') content = <RightsViolationGrievance />;
     else if (page === 'documents') content = <Documents />;
     else if (page === 'ngos') content = <NgosPage />;
     else if (page === 'notifications') content = <NotificationsPage />;
     else content = <CitizenHome />;
   } else if (role === 'hospital') {
     content = <HospitalView page={page} />;
+  } else if (role === 'cpgrams') {
+    content = <CpgramsView page={page} />;
   } else if (role === 'state') {
     content = <StateView page={page} />;
   } else {
