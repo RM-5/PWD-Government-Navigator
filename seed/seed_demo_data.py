@@ -157,20 +157,20 @@ def seed(session: Session) -> None:
     )
 
     state_office = StateOffice(
-        id=demo_id("state-office:delhi-commissioner"),
-        name="Delhi State Commissioner for Persons with Disabilities",
+        id=demo_id("state-office:delhi-representative"),
+        name="State Representative Office",
         state="Delhi",
         district="New Delhi",
         address="Mock Secretariat Annexe, New Delhi",
         phone="+91-11-20000001",
-        email="commissioner.pwd@delhi.demo",
-        official_url="https://example.gov.in/delhi-disability-commissioner",
+        email="representative.pwd@delhi.demo",
+        official_url="https://example.org/delhi-state-representative",
     )
     add_if_missing(session, state_office)
     session.flush()
     add_if_missing(
         session,
-        StateRepresentative(id=demo_id("state-rep:meera"), user_id=users["state"].id, state_office_id=state_office.id, designation="Assistant Commissioner"),
+        StateRepresentative(id=demo_id("state-rep:meera"), user_id=users["state"].id, state_office_id=state_office.id, designation="State Representative"),
     )
 
     add_if_missing(
@@ -190,8 +190,8 @@ def seed(session: Session) -> None:
             processing_time="21-30 working days",
             fee="No fee for mock demo",
             official_url="https://example.gov.in/disability-certificate",
-            grievance_authority="Delhi State Commissioner for Persons with Disabilities",
-            escalation_authority="Chief Commissioner for Persons with Disabilities",
+            grievance_authority="State Representative Office",
+            escalation_authority="State Representative Escalation Cell",
             last_verified=date(2026, 8, 25),
         ),
     )

@@ -7,6 +7,9 @@ import type {
   BenefitEligibility,
   CaseBasic,
   CaseDetail,
+  Certificate,
+  CertificateDecisionCreate,
+  CertificateDecisionResult,
   CitizenProfile,
   Dashboard,
   DisabilityProfile,
@@ -14,12 +17,14 @@ import type {
   GovernmentService,
   Grievance,
   Hospital,
+  HospitalAssessmentCase,
   HospitalDepartment,
   LoginResponse,
   Ngo,
   NgoAssistanceRequest,
   Notification,
   Role,
+  UdidCardData,
   User,
 } from './types';
 
@@ -389,6 +394,14 @@ const admin = {
   seedDemo: () => post<{ status: string }>('/api/admin/seed-demo'),
 };
 
+/* ── Certificates & Hospital Assessments ── */
+
+const certificates = {
+  assessments: () => get<HospitalAssessmentCase[]>('/api/hospital/assessments'),
+  decision: (data: CertificateDecisionCreate) => post<CertificateDecisionResult>('/api/certificates/decision', data),
+  myUdid: () => get<UdidCardData>('/api/citizens/me/udid'),
+};
+
 /* ── Export ── */
 
 export const api = {
@@ -398,6 +411,7 @@ export const api = {
   appointments,
   hospitals,
   benefits,
+  certificates,
   documents,
   grievances,
   ngos,

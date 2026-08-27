@@ -91,7 +91,7 @@ The seed script creates deterministic demo records for:
 - Users: `citizen@demo.local`, `hospital@demo.local`, `state@demo.local`, `admin@demo.local`.
 - Citizen: Rahul Sharma, age 21 on 2026-08-25, Delhi/New Delhi, visual disability, certificate pending.
 - Hospital: Delhi Government Hospital with Ophthalmology / Disability Medical Board and mock API booking.
-- State office: Delhi State Commissioner for Persons with Disabilities and a mock representative.
+- State office: State Representative Office and a mock representative.
 - Government service: Disability Certificate and UDID Support.
 - Benefits: 10 mock disability-related schemes, each marked `is_mock=true`.
 - NGOs: 5 mock disability-support organizations, each marked `is_mock=true`.

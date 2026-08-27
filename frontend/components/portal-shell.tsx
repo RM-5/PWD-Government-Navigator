@@ -19,6 +19,7 @@ const nav: Record<Role, string[][]> = {
   hospital: [
     ['Today', '/hospital'],
     ['Appointments', '/hospital/appointments'],
+    ['Certificates', '/hospital/certificates'],
     ['Cases', '/hospital/cases'],
   ],
   state: [

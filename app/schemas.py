@@ -410,3 +410,65 @@ class SummaryOut(BaseModel):
     benefits: int
     hospitals: int
     ngos: int
+
+
+class CertificateDecisionCreate(BaseModel):
+    case_id: UUID
+    decision: str  # "approve" | "reject"
+    disability_percentage: int = Field(default=40, ge=0, le=100)
+    is_permanent: bool = True
+    validity_years: int = Field(default=5, ge=1, le=20)
+    medical_remarks: str | None = None
+    rejection_reason: str | None = None
+
+
+class CertificateOut(ORMModel):
+    id: UUID
+    citizen_id: UUID
+    certificate_type: str
+    certificate_number_mock: str
+    issue_date: date | None = None
+    expiry_date: date | None = None
+    status: CertificateStatus
+    issuing_authority: str | None = None
+    source: str
+    created_at: datetime
+
+
+class UdidCardData(BaseModel):
+    udid_number: str
+    citizen_name: str
+    date_of_birth: str | None = None
+    gender: str = "Not Specified"
+    state: str
+    district: str
+    disability_category: str
+    disability_percentage: int
+    validity: str
+    issue_date: str
+    issuing_hospital: str
+    barcode_reference: str
+    status: str
+
+
+class HospitalAssessmentCaseOut(BaseModel):
+    case: CaseDetailOut
+    citizen: CitizenProfileOut
+    user_name: str
+    user_email: str
+    disability_profile: DisabilityProfileOut | None = None
+    appointment: AppointmentOut | None = None
+    documents: list[DocumentOut] = []
+    certificate: CertificateOut | None = None
+    udid_card: UdidCardData | None = None
+
+
+class CertificateDecisionResultOut(BaseModel):
+    success: bool
+    decision: str
+    message: str
+    case: CaseDetailOut
+    disability_profile: DisabilityProfileOut
+    certificate: CertificateOut | None = None
+    udid_card: UdidCardData | None = None
+

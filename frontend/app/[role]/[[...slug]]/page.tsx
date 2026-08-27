@@ -12,15 +12,18 @@ import type {
   BenefitEligibility,
   CaseBasic,
   CaseDetail,
+  Certificate,
   Dashboard,
   Document as Doc,
   GovernmentService,
   Grievance,
   Hospital,
+  HospitalAssessmentCase,
   HospitalDepartment,
   Ngo,
   Notification,
   Role,
+  UdidCardData,
 } from '@/lib/api/types';
 
 const roles = ['citizen', 'hospital', 'state', 'admin'];
@@ -86,6 +89,92 @@ function Timeline({ steps }: { steps: { name: string; status: string; action?: s
         );
       })}
     </ol>
+  );
+}
+
+/* ── Digital Mock UDID Card ── */
+
+function UdidCard({ card }: { card: UdidCardData }) {
+  return (
+    <div className="relative overflow-hidden rounded-3xl border-2 border-teal/40 bg-gradient-to-br from-[#0a2540] via-[#124e66] to-[#0f3057] p-6 text-white shadow-xl max-w-lg">
+      {/* Top Header */}
+      <div className="flex items-center justify-between border-b border-white/20 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-navy font-black text-xs shadow">
+            GOI
+          </div>
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-teal-300">
+              Government of India
+            </p>
+            <p className="text-sm font-black tracking-wide text-white">Unique Disability ID (UDID)</p>
+          </div>
+        </div>
+        <span className="rounded-full bg-mint px-2.5 py-0.5 text-[10px] font-black uppercase text-teal">
+          {card.status}
+        </span>
+      </div>
+
+      {/* Card Body */}
+      <div className="mt-4 flex gap-4">
+        {/* Photo Box & Chip */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex h-24 w-20 flex-col items-center justify-center rounded-xl border border-white/30 bg-white/10 text-center backdrop-blur-sm">
+            <span className="text-2xl">👤</span>
+            <span className="text-[9px] font-bold text-white/70">PHOTO</span>
+          </div>
+          <div className="h-6 w-9 rounded-md border border-amber-300/60 bg-amber-400/80 shadow-inner flex items-center justify-center">
+            <div className="h-4 w-6 border border-amber-600/50 rounded-sm" />
+          </div>
+        </div>
+
+        {/* Details */}
+        <div className="flex-1 space-y-1.5 text-xs">
+          <div>
+            <p className="text-[10px] uppercase text-white/60 font-semibold">Name of Cardholder</p>
+            <p className="text-base font-black text-white">{card.citizen_name}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] uppercase text-white/60 font-semibold">Disability Category</p>
+              <p className="font-bold text-teal-200">{card.disability_category}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase text-white/60 font-semibold">Percentage</p>
+              <p className="font-extrabold text-amber-300">{card.disability_percentage}% (Benchmark)</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] uppercase text-white/60 font-semibold">State / District</p>
+              <p className="font-medium text-white/90">{card.district}, {card.state}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase text-white/60 font-semibold">Validity</p>
+              <p className="font-bold text-mint">{card.validity}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card Footer */}
+      <div className="mt-4 flex flex-wrap items-center justify-between border-t border-white/20 pt-3 text-[11px]">
+        <div>
+          <p className="text-[9px] uppercase tracking-wider text-white/60">UDID Card Number</p>
+          <p className="font-mono text-sm font-black tracking-widest text-teal-300">{card.udid_number}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[9px] uppercase tracking-wider text-white/60">Issuing Authority</p>
+          <p className="max-w-[180px] truncate text-[10px] font-semibold text-white/90">{card.issuing_hospital}</p>
+        </div>
+      </div>
+
+      {/* Mock Security Barcode */}
+      <div className="mt-3 flex items-center justify-between rounded-lg bg-white/10 px-3 py-1.5 backdrop-blur-sm text-[10px] text-white/80">
+        <span className="font-mono tracking-widest">|||||||| | |||||| ||||| |||||||</span>
+        <span className="font-bold text-mint">✓ DIGITAL VERIFIED</span>
+      </div>
+    </div>
   );
 }
 
@@ -497,7 +586,7 @@ function GrievanceAndStatus() {
     try {
       await api.grievances.updateStatus(grievanceId, {
         status: 'escalated',
-        message: 'Escalated by citizen to Chief Commissioner for Persons with Disabilities due to delay.',
+        message: 'Escalated by citizen to State Representative due to delay.',
       });
       api.grievances.list().then(setList);
     } catch (e: any) {
@@ -521,7 +610,7 @@ function GrievanceAndStatus() {
             <span className="pill bg-mint text-teal font-bold">ESCALATION FRAMEWORK</span>
             <h2 className="mt-2 text-xl font-black text-navy">Disability Grievance Redressal</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Grievances are initially routed to the <b>State Commissioner for Persons with Disabilities</b>. Unresolved cases can be escalated to the <b>Chief Commissioner (Central)</b>.
+              Grievances are initially reviewed by the <b>State Representative</b>. Unresolved cases can be escalated to the <b>State Representative Escalation Cell</b>.
             </p>
           </div>
         </div>
@@ -554,7 +643,7 @@ function GrievanceAndStatus() {
                   disabled={escalatingId === g.id}
                   className="rounded-lg border border-amber-600 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100"
                 >
-                  {escalatingId === g.id ? 'Escalating…' : 'Escalate to Commissioner ↗'}
+                  {escalatingId === g.id ? 'Escalating…' : 'Escalate to State Representative ↗'}
                 </button>
               )}
             </div>
@@ -639,14 +728,36 @@ function GrievanceAndStatus() {
 
 function Documents() {
   const [docs, setDocs] = useState<Doc[]>();
+  const [udid, setUdid] = useState<UdidCardData | null>(null);
+
   useEffect(() => {
     api.documents.list().then(setDocs);
+    api.certificates.myUdid().then(setUdid).catch(() => setUdid(null));
   }, []);
+
   if (!docs) return <Loading />;
+
   return (
     <>
-      <Title eyebrow="Citizen portal" title="Document vault" copy="Your uploaded documents. Share only with permission." />
+      <Title
+        eyebrow="Citizen portal"
+        title="Document Vault & Digital UDID"
+        copy="Access your issued Unique Disability ID card, digital certificates, and uploaded medical documentation."
+      />
+
+      {/* Digital UDID Card Display if Issued */}
+      {udid && (
+        <div className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xl font-black text-navy">Digital UDID Card</h2>
+            <span className="pill bg-mint text-teal font-bold text-xs">OFFICIAL ISSUANCE</span>
+          </div>
+          <UdidCard card={udid} />
+        </div>
+      )}
+
       <div className="card max-w-3xl">
+        <h2 className="mb-4 text-lg font-black text-navy">Verified Records & Documents</h2>
         {docs.length === 0 && <p className="text-slate-500">No documents yet.</p>}
         {docs.map((d) => (
           <div key={d.id} className="flex items-center justify-between border-b py-4 last:border-0">
@@ -724,25 +835,42 @@ function HospitalView({ page }: { page: string }) {
   const [cases, setCases] = useState<CaseBasic[]>();
   const [apts, setApts] = useState<Appointment[]>();
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
+  const [assessments, setAssessments] = useState<HospitalAssessmentCase[]>([]);
   const [reschedulingApt, setReschedulingApt] = useState<Appointment | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string>('');
   const [rescheduleNotes, setRescheduleNotes] = useState<string>('');
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Certificate Evaluation State
+  const [evaluatingCase, setEvaluatingCase] = useState<HospitalAssessmentCase | null>(null);
+  const [decisionMode, setDecisionMode] = useState<'approve' | 'reject'>('approve');
+  const [disabilityPercentage, setDisabilityPercentage] = useState<number>(50);
+  const [isPermanent, setIsPermanent] = useState<boolean>(true);
+  const [validityYears, setValidityYears] = useState<number>(5);
+  const [medicalRemarks, setMedicalRemarks] = useState<string>('');
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [previewUdid, setPreviewUdid] = useState<UdidCardData | null>(null);
+
   useEffect(() => {
-    api.cases.list().then(setCases);
-    api.appointments.list().then(setApts);
-    api.appointments.slots().then(setSlots);
+    refreshData();
   }, []);
 
   const refreshData = async () => {
-    const updatedApts = await api.appointments.list();
-    setApts(updatedApts);
-    const updatedSlots = await api.appointments.slots();
-    setSlots(updatedSlots);
-    const updatedCases = await api.cases.list();
-    setCases(updatedCases);
+    try {
+      const [c, a, s, ass] = await Promise.all([
+        api.cases.list(),
+        api.appointments.list(),
+        api.appointments.slots(),
+        api.certificates.assessments().catch(() => []),
+      ]);
+      setCases(c);
+      setApts(a);
+      setSlots(s);
+      setAssessments(ass);
+    } catch (e: any) {
+      console.error(e);
+    }
   };
 
   const handleAccept = async (apt: Appointment) => {
@@ -811,9 +939,57 @@ function HospitalView({ page }: { page: string }) {
     setActionLoading(false);
   };
 
+  const openEvaluationModal = (item: HospitalAssessmentCase, mode: 'approve' | 'reject') => {
+    setEvaluatingCase(item);
+    setDecisionMode(mode);
+    setDisabilityPercentage(50);
+    setIsPermanent(true);
+    setValidityYears(5);
+    setMedicalRemarks(
+      mode === 'approve'
+        ? `Clinical evaluation completed by board for ${item.disability_profile?.disability_category || 'disability'}. Meets criteria under RPwD Act 2016.`
+        : ''
+    );
+    setRejectionReason(
+      mode === 'reject'
+        ? 'Disability percentage evaluated below benchmark threshold (40%) required for government certification.'
+        : ''
+    );
+    setFeedback(null);
+  };
+
+  const handleCertificateDecision = async () => {
+    if (!evaluatingCase) return;
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      const res = await api.certificates.decision({
+        case_id: evaluatingCase.case.id,
+        decision: decisionMode,
+        disability_percentage: disabilityPercentage,
+        is_permanent: isPermanent,
+        validity_years: validityYears,
+        medical_remarks: medicalRemarks,
+        rejection_reason: rejectionReason,
+      });
+
+      await refreshData();
+      setFeedback({
+        type: 'success',
+        message: res.message,
+      });
+      if (res.udid_card) {
+        setPreviewUdid(res.udid_card);
+      }
+      setEvaluatingCase(null);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to record certificate decision.' });
+    }
+    setActionLoading(false);
+  };
+
   if (!cases || !apts) return <Loading />;
 
-  // Filter available slots (booked_count < capacity)
   const availableSlots = slots.filter((s) => s.booked_count < s.capacity);
 
   const appointmentsTable = (
@@ -1004,6 +1180,301 @@ function HospitalView({ page }: { page: string }) {
     </div>
   );
 
+  const certificatesView = (
+    <div>
+      <Title
+        eyebrow="Hospital Medical Board"
+        title="Disability Certificate & UDID Decisions"
+        copy="Review candidate clinical evaluations, benchmark criteria (RPwD Act 2016), approve certificates with mock UDID generation, or record rejections."
+      />
+
+      {feedback && (
+        <div
+          className={`mb-6 rounded-xl p-4 text-sm font-semibold ${
+            feedback.type === 'success' ? 'bg-mint text-teal border border-teal/20' : 'bg-red-50 text-red-700 border border-red-200'
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
+
+      {/* Generated UDID Preview Modal / Section */}
+      {previewUdid && (
+        <div className="card mb-8 border-2 border-teal bg-mint/10">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <span className="pill bg-mint text-teal font-bold text-xs">OFFICIAL MOCK UDID GENERATED</span>
+              <h3 className="mt-1 text-lg font-black text-navy">Unique Disability ID Card Issued</h3>
+            </div>
+            <button
+              onClick={() => setPreviewUdid(null)}
+              className="rounded-lg border bg-white px-3 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100"
+            >
+              ✕ Close Preview
+            </button>
+          </div>
+          <UdidCard card={previewUdid} />
+        </div>
+      )}
+
+      {/* Evaluation Form / Modal */}
+      {evaluatingCase && (
+        <div className="card mb-8 border-2 border-navy bg-gradient-to-br from-slate-50 to-white shadow-xl">
+          <div className="flex flex-wrap items-center justify-between border-b pb-3">
+            <div>
+              <span className={`pill text-xs ${decisionMode === 'approve' ? 'bg-mint text-teal' : 'bg-red-100 text-red-800'}`}>
+                {decisionMode === 'approve' ? 'APPROVING CERTIFICATE & UDID' : 'REJECTING CERTIFICATE'}
+              </span>
+              <h2 className="mt-1 text-xl font-black text-navy">
+                Candidate: {evaluatingCase.user_name} ({evaluatingCase.case.case_number})
+              </h2>
+              <p className="text-xs text-slate-600">
+                Disability Category: <b>{evaluatingCase.disability_profile?.disability_category?.replace('_', ' ').toUpperCase() || 'GENERAL'}</b> · {evaluatingCase.citizen.district}, {evaluatingCase.citizen.state}
+              </p>
+            </div>
+            <button
+              onClick={() => setEvaluatingCase(null)}
+              className="rounded-lg border bg-white px-3 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {decisionMode === 'approve' ? (
+              <>
+                {/* Benchmark Percentage Slider */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Evaluated Disability Percentage:
+                    </label>
+                    <span className={`font-black text-lg ${disabilityPercentage >= 40 ? 'text-teal' : 'text-amber-600'}`}>
+                      {disabilityPercentage}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={disabilityPercentage}
+                    onChange={(e) => setDisabilityPercentage(Number(e.target.value))}
+                    className="mt-2 w-full accent-teal cursor-pointer"
+                  />
+                  <div className="mt-1 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">10% (Mild)</span>
+                    <span className={disabilityPercentage >= 40 ? 'font-bold text-teal' : 'font-bold text-amber-600'}>
+                      {disabilityPercentage >= 40 ? '✓ Meets RPwD Benchmark (≥ 40%)' : '⚠ Below 40% Benchmark Threshold'}
+                    </span>
+                    <span className="text-slate-400">100% (Severe)</span>
+                  </div>
+                </div>
+
+                {/* Validity Mode */}
+                <div className="grid gap-4 sm:grid-cols-2 pt-2">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700">Validity Period:</label>
+                    <div className="mt-2 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsPermanent(true)}
+                        className={`flex-1 rounded-xl border p-2.5 text-xs font-bold transition-all ${
+                          isPermanent ? 'border-teal bg-teal text-white' : 'bg-white text-navy'
+                        }`}
+                      >
+                        Permanent (Lifetime)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsPermanent(false)}
+                        className={`flex-1 rounded-xl border p-2.5 text-xs font-bold transition-all ${
+                          !isPermanent ? 'border-teal bg-teal text-white' : 'bg-white text-navy'
+                        }`}
+                      >
+                        Temporary
+                      </button>
+                    </div>
+                  </div>
+
+                  {!isPermanent && (
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-700">Valid For (Years):</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={validityYears}
+                        onChange={(e) => setValidityYears(Number(e.target.value))}
+                        className="mt-2 w-full rounded-xl border bg-white p-2 text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Medical Remarks */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Medical Board Evaluation Notes / Clinical Findings:
+                  </label>
+                  <textarea
+                    value={medicalRemarks}
+                    onChange={(e) => setMedicalRemarks(e.target.value)}
+                    rows={2}
+                    className="mt-1 w-full rounded-xl border bg-white p-2.5 text-sm"
+                    placeholder="Enter clinical examination notes, specialist board findings, or diagnosis..."
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Rejection Reason Form */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-red-700">
+                    Criteria Non-Fulfillment / Rejection Reason:
+                  </label>
+                  <textarea
+                    required
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={3}
+                    className="mt-1 w-full rounded-xl border border-red-300 bg-white p-2.5 text-sm"
+                    placeholder="Specify why the certificate application is not approved (e.g. below 40% threshold, inconclusive test results)..."
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    This reason will be provided to the citizen and recorded in their case timeline.
+                  </p>
+                </div>
+              </>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setEvaluatingCase(null)}
+                className="rounded-xl border bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCertificateDecision}
+                disabled={actionLoading}
+                className={`btn text-xs ${decisionMode === 'approve' ? 'bg-teal' : 'bg-red-600 hover:bg-red-700'} disabled:opacity-50`}
+              >
+                {actionLoading
+                  ? 'Recording Decision…'
+                  : decisionMode === 'approve'
+                  ? '✓ Approve & Issue UDID'
+                  : '✕ Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Candidate Assessments Table */}
+      <div className="card overflow-x-auto">
+        <h2 className="mb-4 text-xl font-black text-navy">Assessment Cases Queue</h2>
+        {assessments.length === 0 ? (
+          <p className="py-6 text-center text-sm text-slate-500">No cases pending assessment at your hospital.</p>
+        ) : (
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="border-b text-slate-500">
+                <th className="p-3">Citizen</th>
+                <th className="p-3">Case / Category</th>
+                <th className="p-3">Assessment Status</th>
+                <th className="p-3">UDID Status</th>
+                <th className="p-3">Evaluation Info</th>
+                <th className="p-3 text-right">Medical Board Decision</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assessments.map((item) => {
+                const certApproved = item.disability_profile?.certificate_status === 'approved';
+                const certRejected = item.disability_profile?.certificate_status === 'rejected';
+
+                return (
+                  <tr key={item.case.id} className="border-b hover:bg-slate-50/70 transition-colors">
+                    <td className="p-3">
+                      <p className="font-bold text-navy">{item.user_name}</p>
+                      <p className="text-xs text-slate-500">{item.citizen.district}, {item.citizen.state}</p>
+                    </td>
+                    <td className="p-3">
+                      <p className="font-bold text-teal">{item.case.case_number}</p>
+                      <span className="pill bg-slate-100 text-slate-700 text-[10px]">
+                        {item.disability_profile?.disability_category?.replace('_', ' ').toUpperCase() || 'NOT SPECIFIED'}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`pill text-xs ${
+                          certApproved
+                            ? 'bg-mint text-teal'
+                            : certRejected
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-900'
+                        }`}
+                      >
+                        {item.disability_profile?.certificate_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      {item.udid_card ? (
+                        <div>
+                          <span className="pill bg-blue-100 text-blue-900 font-mono text-[11px]">
+                            {item.udid_card.udid_number}
+                          </span>
+                          <button
+                            onClick={() => setPreviewUdid(item.udid_card)}
+                            className="mt-1 block text-[11px] font-bold text-teal hover:underline"
+                          >
+                            View UDID Card ↗
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">Not Issued</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-xs text-slate-600 max-w-xs truncate">
+                      {item.disability_profile?.broad_disability_status || 'Pending medical board examination'}
+                    </td>
+                    <td className="p-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {!certApproved && (
+                          <button
+                            onClick={() => openEvaluationModal(item, 'approve')}
+                            disabled={actionLoading}
+                            className="rounded-lg bg-teal px-3 py-1.5 text-xs font-bold text-white hover:bg-teal/90 disabled:opacity-50"
+                          >
+                            Approve & UDID
+                          </button>
+                        )}
+                        {!certApproved && !certRejected && (
+                          <button
+                            onClick={() => openEvaluationModal(item, 'reject')}
+                            disabled={actionLoading}
+                            className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        )}
+                        {certApproved && (
+                          <span className="text-xs font-bold text-teal">✓ Certified</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+
   if (page === 'cases') {
     return (
       <>
@@ -1049,9 +1520,16 @@ function HospitalView({ page }: { page: string }) {
     );
   }
 
+  if (page === 'certificates') {
+    return certificatesView;
+  }
+
+  const approvedCount = assessments.filter((a) => a.disability_profile?.certificate_status === 'approved').length;
+  const pendingCount = assessments.filter((a) => a.disability_profile?.certificate_status !== 'approved' && a.disability_profile?.certificate_status !== 'rejected').length;
+
   return (
     <>
-      <Title eyebrow="Hospital desk" title="Today's overview" copy="Cases and appointments assigned to your hospital." />
+      <Title eyebrow="Hospital desk" title="Today's overview" copy="Cases, appointments, and certificate evaluations assigned to your hospital." />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="card">
           <p className="text-sm font-bold text-slate-600">Total cases</p>
@@ -1062,18 +1540,29 @@ function HospitalView({ page }: { page: string }) {
           <p className="mt-1 text-2xl font-black text-navy">{apts.length}</p>
         </div>
         <div className="card">
-          <p className="text-sm font-bold text-slate-600">Confirmed / In Progress</p>
-          <p className="mt-1 text-2xl font-black text-navy">
-            {apts.filter((a) => a.status === 'confirmed').length}
-          </p>
+          <p className="text-sm font-bold text-slate-600">UDIDs Issued</p>
+          <p className="mt-1 text-2xl font-black text-teal">{approvedCount}</p>
         </div>
         <div className="card">
-          <p className="text-sm font-bold text-slate-600">Pending Action</p>
-          <p className="mt-1 text-2xl font-black text-navy">
-            {apts.filter((a) => a.status === 'booked').length}
-          </p>
+          <p className="text-sm font-bold text-slate-600">Pending Evaluation</p>
+          <p className="mt-1 text-2xl font-black text-amber-600">{pendingCount}</p>
         </div>
       </div>
+
+      {/* Quick link banner to Certificate decisions */}
+      <div className="card mt-6 border-l-4 border-l-teal bg-gradient-to-r from-mint/30 to-white flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span className="pill bg-mint text-teal font-bold text-xs">DECISION BOARD</span>
+          <h2 className="mt-1 text-xl font-black text-navy">Disability Certificate & UDID Evaluation</h2>
+          <p className="mt-1 text-xs text-slate-600">
+            {pendingCount} candidate(s) awaiting medical board percentage evaluation and official UDID generation.
+          </p>
+        </div>
+        <Link href="/hospital/certificates" className="btn text-xs">
+          Open Certificate Board →
+        </Link>
+      </div>
+
       {appointmentsTable}
     </>
   );
@@ -1110,7 +1599,7 @@ function StateView({ page }: { page: string }) {
 
   return (
     <>
-      <Title eyebrow="State office" title="State commissioner dashboard" copy="Overview of cases and grievances." />
+      <Title eyebrow="State office" title="State Representative Dashboard" copy="Overview of cases and grievances." />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="card"><p className="text-sm font-bold text-slate-600">Open grievances</p><p className="mt-1 text-2xl font-black text-navy">{grievances.length}</p></div>
         <div className="card"><p className="text-sm font-bold text-slate-600">Acknowledged</p><p className="mt-1 text-2xl font-black text-navy">{grievances.filter((g) => g.status === 'acknowledged').length}</p></div>
