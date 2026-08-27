@@ -47,6 +47,7 @@ class RoleName(str, enum.Enum):
     citizen = "citizen"
     hospital_staff = "hospital_staff"
     state_representative = "state_representative"
+    cpgrams_officer = "cpgrams_officer"
     admin = "admin"
 
 
@@ -188,6 +189,11 @@ class GrievanceStatus(str, enum.Enum):
     citizen_rejected = "citizen_rejected"
     escalated = "escalated"
     closed = "closed"
+
+
+class GrievanceType(str, enum.Enum):
+    cpgrams = "cpgrams"
+    rights_violation = "rights_violation"
 
 
 class EscalationStatus(str, enum.Enum):
@@ -618,6 +624,9 @@ class Grievance(Base):
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    grievance_type: Mapped[GrievanceType] = mapped_column(
+        controlled_enum(GrievanceType, "grievance_type"), nullable=False, index=True, server_default="cpgrams"
+    )
     status: Mapped[GrievanceStatus] = mapped_column(controlled_enum(GrievanceStatus, "grievance_status"), nullable=False, index=True)
     assigned_state_office_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("state_offices.id", ondelete="SET NULL"), index=True)
     created_at: Mapped[datetime] = now_column()

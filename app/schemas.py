@@ -17,6 +17,7 @@ from models.schema import (
     DisabilityCategory,
     DocumentStatus,
     GrievanceStatus,
+    GrievanceType,
     PermissionType,
     RoleName,
     UdidStatus,
@@ -329,6 +330,7 @@ class GrievanceCreate(BaseModel):
     category: str = Field(min_length=2, max_length=100)
     subject: str = Field(min_length=2, max_length=255)
     description: str = Field(min_length=2)
+    grievance_type: GrievanceType = GrievanceType.cpgrams
 
 
 class GrievanceStatusUpdate(BaseModel):
@@ -353,6 +355,7 @@ class GrievanceOut(ORMModel):
     category: str
     subject: str
     description: str
+    grievance_type: GrievanceType
     status: GrievanceStatus
     assigned_state_office_id: UUID | None = None
     created_at: datetime

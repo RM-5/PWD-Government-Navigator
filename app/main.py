@@ -93,6 +93,7 @@ from models.schema import (
     Grievance,
     GrievanceAction,
     GrievanceStatus,
+    GrievanceType,
     Hospital,
     HospitalDepartment,
     HospitalStaff,
@@ -837,16 +838,29 @@ def create_benefit_application(
 
 
 @app.get("/grievances", response_model=list[GrievanceOut])
-def list_grievances(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]):
+def list_grievances(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    grievance_type: GrievanceType | None = None,
+):
     stmt = select(Grievance).options(selectinload(Grievance.actions)).order_by(Grievance.created_at.desc())
+    if grievance_type is not None:
+        stmt = stmt.where(Grievance.grievance_type == grievance_type)
     if has_role(current_user, RoleName.admin):
         return db.scalars(stmt).all()
     if has_role(current_user, RoleName.citizen):
         citizen = current_citizen_profile(db, current_user)
         return db.scalars(stmt.where(Grievance.citizen_id == citizen.id)).all()
+    if has_role(current_user, RoleName.cpgrams_officer):
+        return db.scalars(stmt.where(Grievance.grievance_type == GrievanceType.cpgrams)).all()
     if has_role(current_user, RoleName.state_representative):
         representative = current_state_representative(db, current_user)
-        return db.scalars(stmt.where(Grievance.assigned_state_office_id == representative.state_office_id)).all()
+        return db.scalars(
+            stmt.where(
+                Grievance.grievance_type == GrievanceType.rights_violation,
+                Grievance.assigned_state_office_id == representative.state_office_id,
+            )
+        ).all()
     raise forbidden()
 
 
@@ -858,14 +872,15 @@ def create_grievance(
 ):
     citizen = current_citizen_profile(db, current_user)
     assigned_office_id = None
-    if payload.case_id:
-        case = get_case_or_404(db, payload.case_id)
-        if case.citizen_id != citizen.id:
-            raise forbidden("Cannot create a grievance for another citizen case")
-        assigned_office_id = case.assigned_state_office_id
-    if assigned_office_id is None:
-        office = db.scalar(select(StateOffice).where(StateOffice.state == citizen.state, StateOffice.active.is_(True)))
-        assigned_office_id = office.id if office else None
+    if payload.grievance_type == GrievanceType.rights_violation:
+        if payload.case_id:
+            case = get_case_or_404(db, payload.case_id)
+            if case.citizen_id != citizen.id:
+                raise forbidden("Cannot create a grievance for another citizen case")
+            assigned_office_id = case.assigned_state_office_id
+        if assigned_office_id is None:
+            office = db.scalar(select(StateOffice).where(StateOffice.state == citizen.state, StateOffice.active.is_(True)))
+            assigned_office_id = office.id if office else None
     grievance = Grievance(
         grievance_number=next_number(db, Grievance, "GRV"),
         citizen_id=citizen.id,
@@ -873,6 +888,7 @@ def create_grievance(
         category=payload.category,
         subject=payload.subject,
         description=payload.description,
+        grievance_type=payload.grievance_type,
         status=GrievanceStatus.submitted,
         assigned_state_office_id=assigned_office_id,
     )
@@ -897,7 +913,13 @@ def grievance_detail(grievance_id: UUID, db: Annotated[Session, Depends(get_db)]
             return grievance
     if has_role(current_user, RoleName.state_representative):
         representative = current_state_representative(db, current_user)
-        if grievance.assigned_state_office_id == representative.state_office_id:
+        if (
+            grievance.grievance_type == GrievanceType.rights_violation
+            and grievance.assigned_state_office_id == representative.state_office_id
+        ):
+            return grievance
+    if has_role(current_user, RoleName.cpgrams_officer):
+        if grievance.grievance_type == GrievanceType.cpgrams:
             return grievance
     raise forbidden("Cannot access this grievance")
 
@@ -913,8 +935,14 @@ def update_grievance_status(
     if has_role(current_user, RoleName.citizen):
         if payload.status not in {GrievanceStatus.citizen_accepted, GrievanceStatus.citizen_rejected}:
             raise forbidden("Citizens can only accept or reject a response")
+    elif has_role(current_user, RoleName.cpgrams_officer):
+        if grievance.grievance_type != GrievanceType.cpgrams:
+            raise forbidden("CPGRAMS officers can only update CPGRAMS grievances")
     elif not (has_role(current_user, RoleName.state_representative) or has_role(current_user, RoleName.admin)):
         raise forbidden()
+    elif has_role(current_user, RoleName.state_representative):
+        if grievance.grievance_type != GrievanceType.rights_violation:
+            raise forbidden("State representatives can only update rights violation grievances")
     grievance.status = payload.status
     if payload.status in {GrievanceStatus.closed, GrievanceStatus.citizen_accepted}:
         grievance.resolved_at = datetime.now(timezone.utc)
