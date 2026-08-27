@@ -87,10 +87,12 @@ def apply_schema_patches() -> None:
 
 
 def seed_demo_database() -> None:
+    from seed.citizen_journey import sync_demo_case_steps
     from seed.seed_demo_data import seed
 
     with SessionLocal() as session:
         seed(session)
+        sync_demo_case_steps(session)
 
 
 def initialize_database() -> None:

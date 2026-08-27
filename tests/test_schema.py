@@ -59,7 +59,7 @@ def test_case_timeline_steps_and_events(session) -> None:
     case = session.scalar(select(Case).where(Case.case_number == "CASE-2026-00184"))
 
     assert case is not None
-    assert [step.step_order for step in case.steps] == list(range(1, 10))
+    assert [step.step_order for step in case.steps] == list(range(1, 9))
     assert [step.step_name for step in case.steps][:4] == [
         "Profile",
         "Service identified",

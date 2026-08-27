@@ -11,6 +11,7 @@ import type {
   CertificateDecisionCreate,
   CertificateDecisionResult,
   CitizenProfile,
+  CitizenJourneyReview,
   Dashboard,
   DisabilityProfile,
   Document,
@@ -26,6 +27,7 @@ import type {
   Role,
   UdidCardData,
   User,
+  WorkflowProgress,
 } from './types';
 
 /* ── Helpers ── */
@@ -163,16 +165,7 @@ const citizen = {
 
       const sCert = getStatus('Certificate');
       const sBen = getStatus('Benefits');
-
-      // 7. Grievance and Status (combines Grievance + Escalation)
-      const sGrv = getStatus('Grievance');
-      const sEsc = getStatus('Escalation');
-      let sGrvStatus: 'done' | 'current' | 'pending' = 'pending';
-      if (sEsc === 'completed' || sGrv === 'completed') {
-        sGrvStatus = 'done';
-      } else if (sGrv === 'in_progress' || sEsc === 'in_progress') {
-        sGrvStatus = 'current';
-      }
+      const sPen = getStatus('Pensions');
 
       const toStatus = (st?: string): 'done' | 'current' | 'pending' =>
         st === 'completed' ? 'done' : st === 'in_progress' ? 'current' : 'pending';
@@ -184,7 +177,7 @@ const citizen = {
         { label: 'Medical Assessment', status: sMedAssessment, href: '/citizen/medical-assessment' },
         { label: 'Certificate', status: toStatus(sCert), href: '/citizen/documents' },
         { label: 'Benefits', status: toStatus(sBen), href: '/citizen/benefits' },
-        { label: 'Grievances', status: sGrvStatus, href: '/citizen/cpgrams-grievance' },
+        { label: 'Pensions', status: toStatus(sPen), href: '/citizen/pensions' },
       ];
     }
 
@@ -401,6 +394,12 @@ const notifications_ = {
 const admin = {
   summary: () => get<AdminSummary>('/api/admin/summary'),
   seedDemo: () => post<{ status: string }>('/api/admin/seed-demo'),
+  resetCitizenProgress: () => post<{ status: string; message: string }>('/api/admin/reset-citizen-progress'),
+  citizenJourney: () => get<CitizenJourneyReview>('/api/admin/citizen-journey'),
+};
+
+const demo = {
+  workflowProgress: () => get<WorkflowProgress>('/api/demo/workflow-progress'),
 };
 
 /* ── Certificates & Hospital Assessments ── */
@@ -427,4 +426,5 @@ export const api = {
   services,
   notifications: notifications_,
   admin,
+  demo,
 };

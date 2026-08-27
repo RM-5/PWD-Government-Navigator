@@ -12,6 +12,7 @@ const nav: Record<Role, string[][]> = {
     ['Medical Assessment', '/citizen/medical-assessment'],
     ['Documents', '/citizen/documents'],
     ['Benefits', '/citizen/benefits'],
+    ['Pensions', '/citizen/pensions'],
     ['CPGRAMS Grievance', '/citizen/cpgrams-grievance'],
     ['Rights Violation', '/citizen/rights-grievance'],
     ['NGOs', '/citizen/ngos'],
@@ -158,7 +159,22 @@ export function PortalShell({ role, children }: { role: Role; children: React.Re
             })}
           </nav>
         </aside>
-        <main className="relative z-0 min-w-0 flex-1 isolate p-4 sm:p-7">{children}</main>
+        <main className="relative z-0 min-w-0 flex-1 isolate p-4 sm:p-7">
+          {role === 'citizen' && (
+            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <span className="font-bold">Need help at any step?</span> File a{' '}
+              <Link href="/citizen/cpgrams-grievance" className="font-bold text-teal underline">
+                CPGRAMS grievance
+              </Link>{' '}
+              for service delays, or a{' '}
+              <Link href="/citizen/rights-grievance" className="font-bold text-teal underline">
+                rights violation complaint
+              </Link>{' '}
+              if your disability rights are affected.
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -109,6 +109,14 @@ from models.schema import (
     UdidStatus,
     User,
 )
+from seed.citizen_journey import (
+    DEMO_CITIZEN_EMAIL,
+    WORKFLOW_DISPLAY,
+    build_case_steps,
+    get_demo_citizen_case,
+    reset_citizen_progress,
+    workflow_progress_from_case,
+)
 from seed.seed_demo_data import seed as seed_demo_data
 
 
@@ -220,7 +228,7 @@ def can_access_document(db: Session, user: User, document: Document) -> bool:
 
 
 def default_case_steps(case_id: UUID) -> list[CaseStep]:
-    names = [
+    rows = [
         ("Profile", StepStatus.completed, "Confirm citizen profile", "Citizen"),
         ("Service identified", StepStatus.completed, "Review matched service", "Platform"),
         ("Hospital identified", StepStatus.in_progress, "Select assessment board", "Citizen"),
@@ -228,21 +236,9 @@ def default_case_steps(case_id: UUID) -> list[CaseStep]:
         ("Medical assessment", StepStatus.not_started, "Attend assessment", "Hospital"),
         ("Certificate", StepStatus.not_started, "Await certificate decision", "Hospital"),
         ("Benefits", StepStatus.not_started, "Discover eligible benefits", "Platform"),
-        ("Grievance", StepStatus.not_started, "Raise grievance if delayed", "State Office"),
-        ("Escalation", StepStatus.not_started, "Escalate unresolved grievance", "State Office"),
+        ("Pensions", StepStatus.not_started, "Apply for disability pension", "Platform"),
     ]
-    return [
-        CaseStep(
-            case_id=case_id,
-            step_name=name,
-            step_order=order,
-            status=step_status,
-            next_action=next_action,
-            responsible_authority=authority,
-            completed_at=datetime.now(timezone.utc) if step_status == StepStatus.completed else None,
-        )
-        for order, (name, step_status, next_action, authority) in enumerate(names, start=1)
-    ]
+    return build_case_steps(case_id, rows)
 
 
 def age_from_dob(dob: date | None) -> int | None:
@@ -1017,6 +1013,67 @@ def mark_notification_read(notification_id: UUID, db: Annotated[Session, Depends
     return notification
 
 
+@app.get("/demo/workflow-progress")
+def demo_workflow_progress(db: Annotated[Session, Depends(get_db)]) -> dict:
+    result = get_demo_citizen_case(db)
+    if result is None:
+        return {
+            "citizen_name": "Rahul Sharma",
+            "case_number": None,
+            "current_stage": None,
+            "steps": [
+                {
+                    "step": index,
+                    "key": item["key"],
+                    "title": item["title"],
+                    "description": item["description"],
+                    "status": "pending",
+                }
+                for index, item in enumerate(WORKFLOW_DISPLAY, start=1)
+            ],
+            "grievance_note": "Grievances can be filed at any step of the journey.",
+        }
+
+    citizen, case = result
+    user = db.scalar(select(User).where(User.id == citizen.user_id))
+    return {
+        "citizen_name": user.full_name if user else "Rahul Sharma",
+        "case_number": case.case_number,
+        "current_stage": case.current_stage,
+        "steps": workflow_progress_from_case(db, case, citizen.id),
+        "grievance_note": "Grievances can be filed at any step of the journey.",
+    }
+
+
+@app.post("/admin/reset-citizen-progress")
+def admin_reset_citizen_progress(
+    db: Annotated[Session, Depends(get_db)],
+    _current_user: Annotated[User, Depends(require_roles(RoleName.admin))],
+) -> dict[str, str]:
+    return reset_citizen_progress(db)
+
+
+@app.get("/admin/citizen-journey")
+def admin_citizen_journey(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_roles(RoleName.admin, RoleName.hospital_staff, RoleName.state_representative, RoleName.cpgrams_officer))],
+):
+    result = get_demo_citizen_case(db)
+    if result is None:
+        raise not_found("Demo citizen journey")
+    citizen, case = result
+    user = db.scalar(select(User).where(User.id == citizen.user_id))
+    return {
+        "citizen_name": user.full_name if user else "Rahul Sharma",
+        "citizen_email": user.email if user else DEMO_CITIZEN_EMAIL,
+        "case_number": case.case_number,
+        "case_status": case.status.value,
+        "current_stage": case.current_stage,
+        "steps": workflow_progress_from_case(db, case, citizen.id),
+        "reviewer_role": current_user.roles[0].name.value if current_user.roles else None,
+    }
+
+
 @app.get("/admin/summary", response_model=SummaryOut)
 def admin_summary(
     db: Annotated[Session, Depends(get_db)],
@@ -1240,6 +1297,9 @@ def evaluate_certificate_decision(
             if step.step_name == "Benefits":
                 step.status = StepStatus.in_progress
                 step.next_action = "Discover eligible benefits with UDID"
+            if step.step_name == "Pensions":
+                step.status = StepStatus.not_started
+                step.next_action = "Apply for disability pension after benefits review"
 
         case.current_stage = "Benefits"
         case.status = CaseStatus.in_progress
