@@ -32,8 +32,19 @@ def create_database_schema() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+def run_migrations() -> None:
+    from alembic import command
+    from alembic.config import Config
+
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    command.upgrade(alembic_cfg, "head")
+
+
 def apply_schema_patches() -> None:
     """Patch existing databases when new enum values or columns are added."""
+    if not settings.database_url.startswith("postgresql"):
+        return
     with engine.connect() as connection:
         connection.execute(
             text(
@@ -98,8 +109,10 @@ def seed_demo_database() -> None:
 def initialize_database() -> None:
     if settings.database_startup_check:
         ping_database()
+    if settings.database_run_migrations:
+        run_migrations()
     if settings.database_auto_create:
         create_database_schema()
-        apply_schema_patches()
+    apply_schema_patches()
     if settings.database_auto_seed_demo and settings.demo_auth_enabled:
         seed_demo_database()
