@@ -9,10 +9,10 @@ const nav: Record<Role, string[][]> = {
   citizen: [
     ['Home', '/citizen'],
     ['Services', '/citizen/services'],
-    ['Appointments', '/citizen/appointments'],
+    ['Medical Assessment', '/citizen/medical-assessment'],
     ['Documents', '/citizen/documents'],
     ['Benefits', '/citizen/benefits'],
-    ['Grievances', '/citizen/grievances'],
+    ['Grievance and Status', '/citizen/grievance-and-status'],
     ['NGOs', '/citizen/ngos'],
     ['Notifications', '/citizen/notifications'],
   ],
@@ -129,18 +129,24 @@ export function PortalShell({ role, children }: { role: Role; children: React.Re
         >
           <p className="mb-4 px-3 text-xs font-bold uppercase tracking-widest text-slate-500">{role} portal</p>
           <nav className="space-y-1" aria-label={`${role} portal navigation`}>
-            {nav[role].map(([name, href]) => (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setMenu(false)}
-                className={`block rounded-xl px-3 py-3 font-semibold ${
-                  path === href ? 'bg-mint text-teal' : 'text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                {name}
-              </Link>
-            ))}
+            {nav[role].map(([name, href]) => {
+              const isActive =
+                path === href ||
+                (href === '/citizen/medical-assessment' && path === '/citizen/appointments') ||
+                (href === '/citizen/grievance-and-status' && path === '/citizen/grievances');
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMenu(false)}
+                  className={`block rounded-xl px-3 py-3 font-semibold ${
+                    isActive ? 'bg-mint text-teal' : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {name}
+                </Link>
+              );
+            })}
           </nav>
         </aside>
         <main className="relative z-0 min-w-0 flex-1 isolate p-4 sm:p-7">{children}</main>
