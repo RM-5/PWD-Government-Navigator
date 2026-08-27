@@ -32,7 +32,8 @@ import type {
 
 /* ── Helpers ── */
 
-const base = process.env.NEXT_PUBLIC_API_URL || '';
+// In the browser, use same-origin /api (proxied by Next.js). On server, call backend directly.
+const base = typeof window !== 'undefined' ? '' : process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -51,10 +52,17 @@ function authHeaders(): Record<string, string> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`${base}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...init?.headers },
-  });
+  let r: Response;
+  try {
+    r = await fetch(`${base}${path}`, {
+      ...init,
+      headers: { ...authHeaders(), ...init?.headers },
+    });
+  } catch {
+    throw new Error(
+      'Cannot reach the backend. Make sure the API is running on port 8000 (npm run backend:dev).'
+    );
+  }
   if (!r.ok) {
     const body = await r.text().catch(() => '');
     throw new Error(`API ${r.status}: ${body || r.statusText}`);

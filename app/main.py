@@ -1140,7 +1140,11 @@ def list_hospital_assessments(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(require_roles(RoleName.hospital_staff, RoleName.admin))],
 ):
-    stmt = select(Case).order_by(Case.created_at.desc())
+    stmt = (
+        select(Case)
+        .options(selectinload(Case.steps), selectinload(Case.events))
+        .order_by(Case.created_at.desc())
+    )
     if has_role(current_user, RoleName.hospital_staff):
         staff = current_hospital_staff(db, current_user)
         stmt = stmt.where(Case.assigned_hospital_id == staff.hospital_id)
