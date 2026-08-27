@@ -296,3 +296,65 @@ export interface Dashboard {
 
 // Re-export Case as the detail version for component use
 export type Case = CaseDetail;
+
+/* ── Certificates & UDID ── */
+export interface Certificate {
+  id: string;
+  citizen_id: string;
+  certificate_type: string;
+  certificate_number_mock: string;
+  issue_date: string | null;
+  expiry_date: string | null;
+  status: string;
+  issuing_authority: string | null;
+  source: string;
+  created_at: string;
+}
+
+export interface UdidCardData {
+  udid_number: string;
+  citizen_name: string;
+  date_of_birth: string | null;
+  gender: string;
+  state: string;
+  district: string;
+  disability_category: string;
+  disability_percentage: number;
+  validity: string;
+  issue_date: string;
+  issuing_hospital: string;
+  barcode_reference: string;
+  status: string;
+}
+
+export interface HospitalAssessmentCase {
+  case: CaseDetail;
+  citizen: CitizenProfile;
+  user_name: string;
+  user_email: string;
+  disability_profile: DisabilityProfile | null;
+  appointment: Appointment | null;
+  documents: Document[];
+  certificate: Certificate | null;
+  udid_card: UdidCardData | null;
+}
+
+export interface CertificateDecisionCreate {
+  case_id: string;
+  decision: 'approve' | 'reject';
+  disability_percentage?: number;
+  is_permanent?: boolean;
+  validity_years?: number;
+  medical_remarks?: string;
+  rejection_reason?: string;
+}
+
+export interface CertificateDecisionResult {
+  success: boolean;
+  decision: string;
+  message: string;
+  case: CaseDetail;
+  disability_profile: DisabilityProfile;
+  certificate: Certificate | null;
+  udid_card: UdidCardData | null;
+}

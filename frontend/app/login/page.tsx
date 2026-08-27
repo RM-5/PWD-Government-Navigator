@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 const accounts: [string, string, string][] = [
   ['Rahul Sharma', 'citizen@demo.local', 'citizen'],
   ['Delhi Government Hospital', 'hospital@demo.local', 'hospital'],
-  ['Delhi State Office', 'state@demo.local', 'state'],
+  ['State Representative', 'state@demo.local', 'state'],
   ['System Administrator', 'admin@demo.local', 'admin'],
 ];
 
@@ -58,7 +58,7 @@ export default function Login() {
           <select id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border p-3">
             <option value="citizen@demo.local">Rahul Sharma — Citizen</option>
             <option value="hospital@demo.local">Delhi Government Hospital</option>
-            <option value="state@demo.local">Delhi State Office</option>
+            <option value="state@demo.local">State Representative</option>
             <option value="admin@demo.local">System Administrator</option>
           </select>
           {error && (

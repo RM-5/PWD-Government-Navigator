@@ -39,6 +39,9 @@ from app.schemas import (
     CaseEventOut,
     CaseOut,
     CaseStatusUpdate,
+    CertificateDecisionCreate,
+    CertificateDecisionResultOut,
+    CertificateOut,
     CitizenProfileOut,
     CitizenProfileUpdate,
     DisabilityProfileOut,
@@ -50,6 +53,7 @@ from app.schemas import (
     GrievanceCreate,
     GrievanceOut,
     GrievanceStatusUpdate,
+    HospitalAssessmentCaseOut,
     HospitalDepartmentOut,
     HospitalOut,
     LoginRequest,
@@ -59,6 +63,7 @@ from app.schemas import (
     NgoOut,
     NotificationOut,
     SummaryOut,
+    UdidCardData,
     UserOut,
 )
 from models.schema import (
@@ -77,6 +82,8 @@ from models.schema import (
     CaseStatus,
     CaseStep,
     CaseType,
+    Certificate,
+    CertificateStatus,
     CitizenProfile,
     DisabilityProfile,
     Document,
@@ -98,6 +105,7 @@ from models.schema import (
     StateOffice,
     StateRepresentative,
     StepStatus,
+    UdidStatus,
     User,
 )
 from seed.seed_demo_data import seed as seed_demo_data
@@ -1006,6 +1014,321 @@ def seed_demo(
     return {"status": "ok", "message": "Demo seed data loaded"}
 
 
+def make_mock_udid_card(
+    citizen: CitizenProfile,
+    user: User,
+    disability: DisabilityProfile | None,
+    cert: Certificate | None,
+    hospital_name: str = "Government Medical Board",
+) -> UdidCardData | None:
+    if not disability or disability.udid_status != UdidStatus.issued or not cert:
+        return None
+
+    percentage = 40
+    if disability.broad_disability_status and "%" in disability.broad_disability_status:
+        try:
+            percentage = int(disability.broad_disability_status.split("%")[0].strip())
+        except Exception:
+            percentage = 40
+
+    validity_str = "Permanent" if not cert.expiry_date else f"Valid until {cert.expiry_date.strftime('%d/%m/%Y')}"
+
+    return UdidCardData(
+        udid_number=cert.certificate_number_mock,
+        citizen_name=user.full_name,
+        date_of_birth=citizen.date_of_birth.strftime("%d/%m/%Y") if citizen.date_of_birth else None,
+        gender="Male",
+        state=citizen.state,
+        district=citizen.district,
+        disability_category=disability.disability_category.value.replace("_", " ").title(),
+        disability_percentage=percentage,
+        validity=validity_str,
+        issue_date=cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else date.today().strftime("%d/%m/%Y"),
+        issuing_hospital=cert.issuing_authority or hospital_name,
+        barcode_reference=f"UDID-{cert.certificate_number_mock}-VERIFIED",
+        status="ACTIVE",
+    )
+
+
+@app.get("/hospital/assessments", response_model=list[HospitalAssessmentCaseOut])
+def list_hospital_assessments(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_roles(RoleName.hospital_staff, RoleName.admin))],
+):
+    stmt = select(Case).order_by(Case.created_at.desc())
+    if has_role(current_user, RoleName.hospital_staff):
+        staff = current_hospital_staff(db, current_user)
+        stmt = stmt.where(Case.assigned_hospital_id == staff.hospital_id)
+
+    cases = db.scalars(stmt).all()
+    results: list[HospitalAssessmentCaseOut] = []
+
+    for case in cases:
+        citizen = db.scalar(select(CitizenProfile).where(CitizenProfile.id == case.citizen_id))
+        if not citizen:
+            continue
+        user = db.scalar(select(User).where(User.id == citizen.user_id))
+        if not user:
+            continue
+        disability = db.scalar(select(DisabilityProfile).where(DisabilityProfile.citizen_id == citizen.id))
+        appointment = db.scalar(
+            select(Appointment)
+            .where(Appointment.case_id == case.id)
+            .order_by(Appointment.created_at.desc())
+        )
+        documents = db.scalars(
+            select(Document)
+            .where(Document.citizen_id == citizen.id, Document.deleted_at.is_(None))
+        ).all()
+        cert = db.scalar(
+            select(Certificate)
+            .where(Certificate.citizen_id == citizen.id)
+            .order_by(Certificate.created_at.desc())
+        )
+
+        hospital_name = "Government Hospital"
+        if case.assigned_hospital_id:
+            h = db.get(Hospital, case.assigned_hospital_id)
+            if h:
+                hospital_name = h.name
+
+        udid_card = make_mock_udid_card(citizen, user, disability, cert, hospital_name)
+
+        results.append(
+            HospitalAssessmentCaseOut(
+                case=case,
+                citizen=citizen,
+                user_name=user.full_name,
+                user_email=user.email,
+                disability_profile=disability,
+                appointment=appointment,
+                documents=documents,
+                certificate=cert,
+                udid_card=udid_card,
+            )
+        )
+
+    return results
+
+
+@app.post("/certificates/decision", response_model=CertificateDecisionResultOut)
+def evaluate_certificate_decision(
+    payload: CertificateDecisionCreate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_roles(RoleName.hospital_staff, RoleName.admin))],
+):
+    case = get_case_or_404(db, payload.case_id)
+    if has_role(current_user, RoleName.hospital_staff):
+        staff = current_hospital_staff(db, current_user)
+        if case.assigned_hospital_id != staff.hospital_id:
+            raise forbidden("Hospital staff cannot evaluate cases outside their assigned hospital")
+
+    citizen = db.scalar(select(CitizenProfile).where(CitizenProfile.id == case.citizen_id))
+    if not citizen:
+        raise not_found("Citizen profile")
+    user = db.scalar(select(User).where(User.id == citizen.user_id))
+    if not user:
+        raise not_found("User")
+
+    disability = db.scalar(select(DisabilityProfile).where(DisabilityProfile.citizen_id == citizen.id))
+    if not disability:
+        disability = DisabilityProfile(
+            citizen_id=citizen.id,
+            disability_category=DisabilityCategory.other,
+            certificate_status=CertificateStatus.under_assessment,
+            udid_status=UdidStatus.pending,
+        )
+        db.add(disability)
+        db.flush()
+
+    hospital = db.get(Hospital, case.assigned_hospital_id) if case.assigned_hospital_id else None
+    hospital_name = hospital.name if hospital else "Government Assessment Board"
+
+    decision = payload.decision.strip().lower()
+    cert = db.scalar(select(Certificate).where(Certificate.citizen_id == citizen.id).order_by(Certificate.created_at.desc()))
+
+    if decision == "approve":
+        pct = max(0, min(100, payload.disability_percentage))
+        percentage_met = pct >= 40
+
+        count = db.scalar(select(func.count(Certificate.id))) or 0
+        udid_number = f"DL01{date.today().year}{count + 184:05d}"
+
+        expiry_date = None
+        if not payload.is_permanent:
+            try:
+                expiry_date = date(date.today().year + payload.validity_years, date.today().month, date.today().day)
+            except Exception:
+                expiry_date = date(date.today().year + payload.validity_years, 12, 31)
+
+        if cert is None:
+            cert = Certificate(
+                citizen_id=citizen.id,
+                certificate_type="Disability Certificate & UDID",
+                certificate_number_mock=udid_number,
+                issue_date=date.today(),
+                expiry_date=expiry_date,
+                status=CertificateStatus.approved,
+                issuing_authority=hospital_name,
+                source="medical_board",
+            )
+            db.add(cert)
+        else:
+            cert.status = CertificateStatus.approved
+            cert.issue_date = date.today()
+            cert.expiry_date = expiry_date
+            cert.issuing_authority = hospital_name
+            cert.certificate_number_mock = udid_number
+
+        disability.certificate_status = CertificateStatus.approved
+        disability.udid_status = UdidStatus.issued
+        disability.percentage_requirement_met = percentage_met
+        disability.broad_disability_status = f"{pct}% evaluated ({payload.medical_remarks or 'Approved by Board'})"
+
+        doc = db.scalar(select(Document).where(Document.citizen_id == citizen.id, Document.document_type == "disability_certificate"))
+        if doc is None:
+            doc = Document(
+                citizen_id=citizen.id,
+                case_id=case.id,
+                document_type="disability_certificate",
+                filename=f"UDID_Certificate_{udid_number}.pdf",
+                mime_type="application/pdf",
+                storage_reference=f"mock://gov-udid-storage/{udid_number}.pdf",
+                status=DocumentStatus.verified,
+            )
+            db.add(doc)
+        else:
+            doc.status = DocumentStatus.verified
+            doc.filename = f"UDID_Certificate_{udid_number}.pdf"
+
+        for step in case.steps:
+            if step.step_name in ("Medical assessment", "Medical Assessment", "Appointment"):
+                step.status = StepStatus.completed
+                step.completed_at = datetime.now(timezone.utc)
+            if step.step_name in ("Certificate", "Disability Certificate"):
+                step.status = StepStatus.completed
+                step.completed_at = datetime.now(timezone.utc)
+                step.next_action = f"UDID ({udid_number}) issued"
+            if step.step_name == "Benefits":
+                step.status = StepStatus.in_progress
+                step.next_action = "Discover eligible benefits with UDID"
+
+        case.current_stage = "Benefits"
+        case.status = CaseStatus.in_progress
+
+        db.add(
+            CaseEvent(
+                case_id=case.id,
+                actor_user_id=current_user.id,
+                event_type="certificate_approved",
+                description=f"Disability Certificate & UDID ({udid_number}) approved with {pct}% evaluation by {hospital_name}.",
+            )
+        )
+        db.add(
+            Notification(
+                user_id=citizen.user_id,
+                title="Disability Certificate & UDID Issued!",
+                body=f"Your Disability Certificate and UDID ({udid_number}) have been issued by {hospital_name} ({pct}% benchmark disability).",
+                notification_type="certificate",
+            )
+        )
+        write_audit(db, current_user, "certificate_approved", "certificates", cert.id if cert else None, {"percentage": pct, "udid": udid_number})
+        db.commit()
+        db.refresh(case)
+        db.refresh(disability)
+        if cert:
+            db.refresh(cert)
+
+        udid_card = make_mock_udid_card(citizen, user, disability, cert, hospital_name)
+
+        return CertificateDecisionResultOut(
+            success=True,
+            decision="approve",
+            message=f"Disability certificate approved and UDID ({udid_number}) issued successfully.",
+            case=get_case_or_404(db, case.id),
+            disability_profile=disability,
+            certificate=cert,
+            udid_card=udid_card,
+        )
+
+    else:
+        reason = payload.rejection_reason or payload.medical_remarks or "Disability criteria not met"
+        disability.certificate_status = CertificateStatus.rejected
+        disability.udid_status = UdidStatus.rejected
+        disability.percentage_requirement_met = False
+        disability.broad_disability_status = f"Rejected: {reason}"
+
+        if cert:
+            cert.status = CertificateStatus.rejected
+
+        for step in case.steps:
+            if step.step_name in ("Medical assessment", "Medical Assessment"):
+                step.status = StepStatus.completed
+                step.completed_at = datetime.now(timezone.utc)
+            if step.step_name in ("Certificate", "Disability Certificate"):
+                step.status = StepStatus.blocked
+                step.next_action = f"Certificate rejected: {reason}"
+
+        db.add(
+            CaseEvent(
+                case_id=case.id,
+                actor_user_id=current_user.id,
+                event_type="certificate_rejected",
+                description=f"Disability Certificate rejected by Medical Board. Reason: {reason}.",
+            )
+        )
+        db.add(
+            Notification(
+                user_id=citizen.user_id,
+                title="Disability Certificate Decision",
+                body=f"Your Disability Certificate application was not approved by {hospital_name}. Reason: {reason}. You may file a grievance or request re-evaluation.",
+                notification_type="certificate",
+            )
+        )
+        write_audit(db, current_user, "certificate_rejected", "cases", case.id, {"reason": reason})
+        db.commit()
+        db.refresh(case)
+        db.refresh(disability)
+
+        return CertificateDecisionResultOut(
+            success=True,
+            decision="reject",
+            message=f"Disability certificate rejected. Citizen notified.",
+            case=get_case_or_404(db, case.id),
+            disability_profile=disability,
+            certificate=cert,
+            udid_card=None,
+        )
+
+
+@app.get("/citizens/me/udid", response_model=UdidCardData)
+def my_udid_card(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_roles(RoleName.citizen))],
+):
+    profile = current_citizen_profile(db, current_user)
+    disability = db.scalar(select(DisabilityProfile).where(DisabilityProfile.citizen_id == profile.id))
+    cert = db.scalar(
+        select(Certificate)
+        .where(Certificate.citizen_id == profile.id, Certificate.status == CertificateStatus.approved)
+        .order_by(Certificate.created_at.desc())
+    )
+    if not disability or disability.udid_status != UdidStatus.issued or not cert:
+        raise not_found("UDID Card not yet issued")
+
+    case = db.scalar(select(Case).where(Case.citizen_id == profile.id).order_by(Case.created_at.desc()))
+    hospital_name = "Government Medical Board"
+    if case and case.assigned_hospital_id:
+        h = db.get(Hospital, case.assigned_hospital_id)
+        if h:
+            hospital_name = h.name
+
+    card = make_mock_udid_card(profile, current_user, disability, cert, hospital_name)
+    if not card:
+        raise not_found("UDID Card not found")
+    return card
+
+
 def frontend_tag_for_path(path: str) -> str:
     first_segment = path.strip("/").split("/", maxsplit=1)[0]
     return {
@@ -1015,6 +1338,7 @@ def frontend_tag_for_path(path: str) -> str:
         "auth": "Auth",
         "benefit-applications": "Benefits",
         "benefits": "Benefits",
+        "certificates": "Certificates",
         "cases": "Cases",
         "citizens": "Citizen",
         "document-permissions": "Documents",
