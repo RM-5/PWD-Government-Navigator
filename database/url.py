@@ -21,6 +21,10 @@ def normalize_database_url(raw: str | None) -> str:
             "DATABASE_URL is empty. Paste your full Supabase URI in Render → Environment."
         )
 
+    # Allow SQLite URLs (used by the in-memory test suite) to pass through unchanged.
+    if url.startswith("sqlite"):
+        return url
+
     if url.startswith("postgres://"):
         url = f"postgresql+psycopg://{url[len('postgres://'):]}"
     elif url.startswith("postgresql://"):
