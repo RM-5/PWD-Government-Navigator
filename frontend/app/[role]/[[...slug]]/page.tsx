@@ -296,7 +296,6 @@ function CaseView({ caseId }: { caseId: string }) {
   const sMed = getStep('Medical assessment');
   const sCert = getStep('Certificate');
   const sBen = getStep('Benefits');
-  const sPen = getStep('Pensions');
 
   const medStatus = sMed?.status === 'completed' ? 'completed' : (sApt?.status === 'in_progress' || sMed?.status === 'in_progress' || sApt?.status === 'completed') ? 'in_progress' : 'not_started';
   const medAction = sMed?.next_action || sApt?.next_action || 'Attend medical board assessment';
@@ -308,7 +307,6 @@ function CaseView({ caseId }: { caseId: string }) {
     { name: 'Medical Assessment', status: medStatus, action: medAction, href: '/citizen/medical-assessment' },
     { name: 'Certificate', status: sCert?.status || 'not_started', action: sCert?.next_action, href: '/citizen/documents' },
     { name: 'Benefits', status: sBen?.status || 'not_started', action: sBen?.next_action, href: '/citizen/benefits' },
-    { name: 'Pensions', status: sPen?.status || 'not_started', action: sPen?.next_action, href: '/citizen/pensions' },
   ];
 
   return (
@@ -502,85 +500,114 @@ function MedicalAssessment() {
   );
 }
 
-/* ── Citizen: Benefits ── */
+/* ── Citizen: Benefits & Pensions ── */
 
 function Benefits() {
   const [data, setData] = useState<(Benefit & { eligibility: BenefitEligibility | null })[]>();
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
   useEffect(() => {
     api.benefits.recommendations().then(setData);
   }, []);
+
   if (!data) return <Loading />;
+
+  const categories = [
+    { key: 'all', label: 'All Schemes' },
+    { key: 'financial_support', label: 'Pensions & Financial Assistance' },
+    { key: 'mobility', label: 'Mobility & Concessions' },
+    { key: 'education', label: 'Scholarships & Education' },
+    { key: 'assistive_devices', label: 'Assistive Devices & Grants' },
+    { key: 'employment', label: 'Employment & Training' },
+  ];
+
+  const filtered = selectedCategory === 'all'
+    ? data
+    : data.filter((b) => b.category === selectedCategory || (selectedCategory === 'financial_support' && b.name.toLowerCase().includes('pension')));
+
+  const pensionCount = data.filter((b) => b.category === 'financial_support' || b.name.toLowerCase().includes('pension')).length;
+
   return (
     <>
       <Title
-        eyebrow="Personalised recommendations"
-        title="Benefits you may qualify for"
-        copy="Eligibility is evaluated by the backend using your profile data."
+        eyebrow="Welfare & Support"
+        title="Benefits & Disability Pensions"
+        copy="Explore welfare schemes, monthly pension assistance, transport concessions, and assistive aid grants evaluated using your profile data."
       />
-      <div className="grid gap-4 lg:grid-cols-3">
-        {data.map((b) => (
-          <article className="card" key={b.id}>
-            <span className={`pill ${b.eligibility?.eligible ? 'bg-mint text-teal' : 'bg-amber-100 text-amber-900'}`}>
-              {b.eligibility?.eligible ? 'LIKELY ELIGIBLE' : b.eligibility ? 'MORE INFO REQUIRED' : 'CHECKING…'}
-            </span>
-            <h2 className="mt-4 text-xl font-black text-navy">{b.name}</h2>
-            <p className="mt-3 text-sm text-slate-600">{b.description}</p>
-            {b.authority && <p className="mt-3 text-sm"><b>Authority</b><br />{b.authority}</p>}
-            {b.eligibility && b.eligibility.matched_rules.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs font-bold text-teal">Matched:</p>
-                {b.eligibility.matched_rules.map((r) => (
-                  <p key={r} className="text-xs text-slate-500">✓ {r}</p>
-                ))}
-              </div>
-            )}
-            {b.eligibility && b.eligibility.missing_rules.length > 0 && (
-              <div className="mt-2">
-                <p className="text-xs font-bold text-amber-700">Missing:</p>
-                {b.eligibility.missing_rules.map((r) => (
-                  <p key={r} className="text-xs text-slate-500">⚠ {r}</p>
-                ))}
-              </div>
-            )}
-          </article>
-        ))}
-      </div>
-    </>
-  );
-}
 
-/* ── Citizen: Pensions ── */
-
-function Pensions() {
-  const [data, setData] = useState<(Benefit & { eligibility: BenefitEligibility | null })[]>();
-  useEffect(() => {
-    api.benefits.recommendations().then((items) => setData(items.filter((b) => b.category === 'financial_support' || b.name.toLowerCase().includes('pension'))));
-  }, []);
-  if (!data) return <Loading />;
-  return (
-    <>
-      <Title
-        eyebrow="Final workflow step"
-        title="Disability Pension"
-        copy="Pensions are the final step after your certificate and benefits review. Apply once your disability certificate is issued."
-      />
+      {/* Integrated Welfare & Pension Banner */}
       <div className="card mb-6 border-l-4 border-l-teal bg-gradient-to-r from-white to-mint/30">
-        <p className="text-sm text-slate-600">
-          If your pension application is delayed or denied, you can file a <b>CPGRAMS grievance</b> at any time from the banner above.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="pill bg-mint text-teal font-bold">INTEGRATED WELFARE SCHEMES</span>
+            <h2 className="mt-2 text-xl font-black text-navy">State Pensions & Entitlements</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Disability pension applications, travel passes, and educational grants are unlocked upon issuing your disability certificate / UDID.
+            </p>
+          </div>
+          <div className="rounded-xl border border-teal/20 bg-white/80 p-3 text-center">
+            <p className="text-2xl font-black text-teal">{pensionCount}</p>
+            <p className="text-xs font-semibold text-slate-500">Pension Schemes</p>
+          </div>
+        </div>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {data.map((b) => (
-          <article className="card" key={b.id}>
-            <span className={`pill ${b.eligibility?.eligible ? 'bg-mint text-teal' : 'bg-amber-100 text-amber-900'}`}>
-              {b.eligibility?.eligible ? 'LIKELY ELIGIBLE' : 'CERTIFICATE REQUIRED'}
-            </span>
-            <h2 className="mt-4 text-xl font-black text-navy">{b.name}</h2>
-            <p className="mt-3 text-sm text-slate-600">{b.description}</p>
-            {b.authority && <p className="mt-3 text-sm"><b>Authority</b><br />{b.authority}</p>}
-          </article>
+
+      {/* Category Tabs */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {categories.map((c) => (
+          <button
+            key={c.key}
+            onClick={() => setSelectedCategory(c.key)}
+            className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+              selectedCategory === c.key
+                ? 'bg-navy text-white shadow-md'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border'
+            }`}
+          >
+            {c.label}
+          </button>
         ))}
-        {data.length === 0 && <p className="text-slate-500">Pension schemes will appear here once your profile is complete.</p>}
+      </div>
+
+      {/* Benefits Grid */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {filtered.map((b) => {
+          const isPension = b.category === 'financial_support' || b.name.toLowerCase().includes('pension');
+          return (
+            <article className={`card ${isPension ? 'border-2 border-teal/40 bg-gradient-to-b from-white to-mint/10' : ''}`} key={b.id}>
+              <div className="flex items-center justify-between gap-2">
+                <span className={`pill ${b.eligibility?.eligible ? 'bg-mint text-teal' : 'bg-amber-100 text-amber-900'}`}>
+                  {b.eligibility?.eligible ? 'LIKELY ELIGIBLE' : b.eligibility ? 'MORE INFO REQUIRED' : 'CHECKING…'}
+                </span>
+                {isPension && <span className="pill bg-purple-100 text-purple-900 font-bold text-xs">PENSION</span>}
+              </div>
+              <h2 className="mt-4 text-xl font-black text-navy">{b.name}</h2>
+              <p className="mt-3 text-sm text-slate-600">{b.description}</p>
+              {b.authority && <p className="mt-3 text-sm"><b>Authority</b><br />{b.authority}</p>}
+              {b.eligibility && b.eligibility.matched_rules.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-bold text-teal">Matched Criteria:</p>
+                  {b.eligibility.matched_rules.map((r) => (
+                    <p key={r} className="text-xs text-slate-500">✓ {r}</p>
+                  ))}
+                </div>
+              )}
+              {b.eligibility && b.eligibility.missing_rules.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs font-bold text-amber-700">Missing Requirements:</p>
+                  {b.eligibility.missing_rules.map((r) => (
+                    <p key={r} className="text-xs text-slate-500">⚠ {r}</p>
+                  ))}
+                </div>
+              )}
+            </article>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div className="card lg:col-span-3 text-center py-10">
+            <p className="text-slate-500">No schemes found for this category.</p>
+          </div>
+        )}
       </div>
     </>
   );
@@ -1877,8 +1904,7 @@ export default function PortalPage() {
     else if (page === 'cases' && subPage) content = <CaseView caseId={subPage} />;
     else if (page === 'cases') content = <CitizenHome />;
     else if (page === 'appointments' || page === 'medical-assessment') content = <MedicalAssessment />;
-    else if (page === 'benefits') content = <Benefits />;
-    else if (page === 'pensions') content = <Pensions />;
+    else if (page === 'benefits' || page === 'pensions') content = <Benefits />;
     else if (page === 'grievances' || page === 'grievance-and-status') content = <CpgramsGrievance />;
     else if (page === 'cpgrams-grievance') content = <CpgramsGrievance />;
     else if (page === 'rights-grievance') content = <RightsViolationGrievance />;

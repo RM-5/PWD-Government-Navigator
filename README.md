@@ -99,8 +99,7 @@ Log in with any email below (no password in demo mode):
 4. **Appointment** — book a medical board slot
 5. **Medical assessment** — hospital evaluates the case
 6. **Certificate** — UDID / disability certificate issued
-7. **Benefits** — check eligibility and apply
-8. **Pensions** — final financial support step
+7. **Benefits & Pensions** — check eligibility and apply for pensions, concessions, and welfare grants
 
 Grievances (CPGRAMS and rights violations) are available at every step via the citizen portal banner.
 

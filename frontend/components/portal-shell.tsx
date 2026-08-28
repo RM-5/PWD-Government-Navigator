@@ -12,7 +12,6 @@ const nav: Record<Role, string[][]> = {
     ['Medical Assessment', '/citizen/medical-assessment'],
     ['Documents', '/citizen/documents'],
     ['Benefits', '/citizen/benefits'],
-    ['Pensions', '/citizen/pensions'],
     ['CPGRAMS Grievance', '/citizen/cpgrams-grievance'],
     ['Rights Violation', '/citizen/rights-grievance'],
     ['NGOs', '/citizen/ngos'],
