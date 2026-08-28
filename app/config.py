@@ -21,6 +21,28 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    @field_validator(
+        "database_echo",
+        "database_auto_create",
+        "database_auto_seed_demo",
+        "database_startup_check",
+        "database_run_migrations",
+        "demo_auth_enabled",
+        "cors_allow_vercel",
+        mode="before",
+    )
+    @classmethod
+    def parse_bool_env(cls, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().strip('"').strip("'").lower()
+            if normalized in {"true", "1", "yes", "on"}:
+                return True
+            if normalized in {"false", "0", "no", "off"}:
+                return False
+        return value
+
     @field_validator("database_url", mode="before")
     @classmethod
     def normalize_database_url(cls, value):
