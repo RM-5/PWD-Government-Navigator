@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from database.url import normalize_database_url
+
 
 class Settings(BaseSettings):
     app_name: str = "Disability Navigator API"
@@ -23,13 +25,7 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_database_url(cls, value):
         if isinstance(value, str):
-            # Supabase and other hosts often provide postgresql:// — SQLAlchemy needs the psycopg driver.
-            if value.startswith("postgresql://"):
-                return value.replace("postgresql://", "postgresql+psycopg://", 1)
-            # Ensure SSL for Supabase direct connections when not already specified.
-            if "supabase.co" in value and "sslmode=" not in value:
-                separator = "&" if "?" in value else "?"
-                return f"{value}{separator}sslmode=require"
+            return normalize_database_url(value)
         return value
 
     @field_validator("cors_origins", mode="before")
