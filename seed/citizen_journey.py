@@ -30,8 +30,7 @@ CASE_STEP_DEFINITIONS = [
     ("Appointment", "Book medical board appointment", "Hospital"),
     ("Medical assessment", "Attend assessment", "Hospital"),
     ("Certificate", "Await certificate decision", "Hospital"),
-    ("Benefits", "Discover eligible benefits", "Platform"),
-    ("Pensions", "Apply for disability pension", "Platform"),
+    ("Benefits", "Discover eligible benefits and pensions", "Platform"),
 ]
 
 DEMO_PROGRESS_STEPS = [
@@ -41,8 +40,7 @@ DEMO_PROGRESS_STEPS = [
     ("Appointment", StepStatus.in_progress, "Attend assessment appointment", "Hospital"),
     ("Medical assessment", StepStatus.not_started, "Medical board assessment pending", "Hospital"),
     ("Certificate", StepStatus.not_started, "Certificate decision pending", "Hospital"),
-    ("Benefits", StepStatus.not_started, "Discover eligible schemes after certificate update", "Platform"),
-    ("Pensions", StepStatus.not_started, "Apply for disability pension after certificate", "Platform"),
+    ("Benefits", StepStatus.not_started, "Discover eligible schemes and pension assistance after certificate update", "Platform"),
 ]
 
 RESET_PROGRESS_STEPS = [
@@ -52,8 +50,7 @@ RESET_PROGRESS_STEPS = [
     ("Appointment", StepStatus.not_started, "Book medical board appointment", "Hospital"),
     ("Medical assessment", StepStatus.not_started, "Attend assessment", "Hospital"),
     ("Certificate", StepStatus.not_started, "Await certificate decision", "Hospital"),
-    ("Benefits", StepStatus.not_started, "Discover eligible benefits", "Platform"),
-    ("Pensions", StepStatus.not_started, "Apply for disability pension", "Platform"),
+    ("Benefits", StepStatus.not_started, "Discover eligible benefits and pensions", "Platform"),
 ]
 
 WORKFLOW_DISPLAY = [
@@ -61,9 +58,8 @@ WORKFLOW_DISPLAY = [
     {"key": "services", "title": "Find Services", "description": "Browse government services for disability certification, benefits, and UDID.", "step_names": ["Service identified"]},
     {"key": "assessment", "title": "Book Assessment", "description": "Locate an accessible hospital and book a medical board appointment.", "step_names": ["Hospital identified", "Appointment"]},
     {"key": "certificate", "title": "Track Certificate", "description": "Monitor your disability certificate and UDID issuance journey.", "step_names": ["Medical assessment", "Certificate"]},
-    {"key": "benefits", "title": "Apply for Benefits", "description": "Check eligibility and apply for state benefits like transport concession.", "step_names": ["Benefits"]},
+    {"key": "benefits", "title": "Apply for Benefits & Pensions", "description": "Check eligibility and apply for state disability pension, transport concession, and grants.", "step_names": ["Benefits"]},
     {"key": "support", "title": "Get Support", "description": "Connect with NGOs for document help, legal awareness, and grievance support.", "step_names": []},
-    {"key": "pensions", "title": "Pensions", "description": "Apply for disability pension assistance after your certificate is issued.", "step_names": ["Pensions"]},
 ]
 
 
@@ -171,6 +167,6 @@ def sync_demo_case_steps(session: Session) -> None:
 
     _, case = result
     step_names = [step.step_name for step in case.steps]
-    if "Grievance" in step_names or "Escalation" in step_names or "Pensions" not in step_names:
+    if "Grievance" in step_names or "Escalation" in step_names or "Pensions" in step_names:
         apply_case_steps(session, case, DEMO_PROGRESS_STEPS)
         session.commit()

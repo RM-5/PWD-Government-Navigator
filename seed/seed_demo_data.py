@@ -283,7 +283,7 @@ def seed(session: Session) -> None:
 
     existing_steps = session.scalars(select(CaseStep).where(CaseStep.case_id == case.id)).all()
     step_names = [step.step_name for step in existing_steps]
-    if not existing_steps or "Grievance" in step_names or "Escalation" in step_names or "Pensions" not in step_names:
+    if not existing_steps or "Grievance" in step_names or "Escalation" in step_names or "Pensions" in step_names:
         apply_case_steps(session, case, DEMO_PROGRESS_STEPS)
 
     add_if_missing(session, CaseEvent(id=demo_id("case-event:created"), case_id=case.id, actor_user_id=users["citizen"].id, event_type="case_created", description="Rahul started a mock disability certificate journey."))

@@ -173,7 +173,6 @@ const citizen = {
 
       const sCert = getStatus('Certificate');
       const sBen = getStatus('Benefits');
-      const sPen = getStatus('Pensions');
 
       const toStatus = (st?: string): 'done' | 'current' | 'pending' =>
         st === 'completed' ? 'done' : st === 'in_progress' ? 'current' : 'pending';
@@ -185,7 +184,6 @@ const citizen = {
         { label: 'Medical Assessment', status: sMedAssessment, href: '/citizen/medical-assessment' },
         { label: 'Certificate', status: toStatus(sCert), href: '/citizen/documents' },
         { label: 'Benefits', status: toStatus(sBen), href: '/citizen/benefits' },
-        { label: 'Pensions', status: toStatus(sPen), href: '/citizen/pensions' },
       ];
     }
 
