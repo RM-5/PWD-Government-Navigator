@@ -222,6 +222,7 @@ The Next.js app proxies browser `/api/*` calls to Render using `NEXT_PUBLIC_API_
 | `Failed to fetch` on login | Backend asleep (wait ~60s) or wrong `NEXT_PUBLIC_API_URL` |
 | CORS error in browser | Add your Vercel URL to Render `CORS_ORIGINS` |
 | Database connection failed | Check Supabase password, use Session pooler URI, ensure project is active |
+| `Could not parse SQLAlchemy URL` | Set `DATABASE_URL` in Render (not empty). Use Supabase **URI** with your real password — no `[YOUR-PASSWORD]` placeholders. If the password has special characters (`@`, `#`, etc.), the app auto-encodes them on startup |
 | Empty data after deploy | Confirm `DATABASE_AUTO_SEED_DEMO=true` on Render; check `/api/health/db` |
 
 ## License
