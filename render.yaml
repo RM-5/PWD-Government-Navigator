@@ -14,16 +14,16 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_AUTO_CREATE
-        value: "false"
+        value: false
       - key: DATABASE_RUN_MIGRATIONS
-        value: "false"
+        value: false
       - key: DATABASE_AUTO_SEED_DEMO
-        value: "true"
+        value: true
       - key: DATABASE_STARTUP_CHECK
-        value: "true"
+        value: true
       - key: DEMO_AUTH_ENABLED
-        value: "true"
+        value: true
       - key: CORS_ALLOW_VERCEL
-        value: "true"
+        value: true
       - key: CORS_ORIGINS
         value: "https://sahaayak.vercel.app"
