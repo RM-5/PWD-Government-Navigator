@@ -1,0 +1,19 @@
+{
+  "name": "Sahaayak",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "source .venv/bin/activate && export CORS_ORIGINS=\"http://localhost:3000,http://127.0.0.1:3000\" && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    },
+    {
+      "name": "frontend",
+      "command": "npm --prefix frontend run dev"
+    }
+  ],
+  "ports": [
+    { "name": "backend", "port": 8000 },
+    { "name": "frontend", "port": 3000 }
+  ]
+}
