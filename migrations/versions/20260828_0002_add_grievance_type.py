@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 revision: str = "20260828_0002"
 down_revision: str | None = "20260825_0001"
@@ -17,6 +18,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+
     op.execute(
         """
         DO $$
@@ -31,16 +34,33 @@ def upgrade() -> None:
         END$$;
         """
     )
+
     grievance_type = sa.Enum("cpgrams", "rights_violation", name="grievance_type")
-    grievance_type.create(op.get_bind(), checkfirst=True)
-    op.add_column(
-        "grievances",
-        sa.Column("grievance_type", grievance_type, nullable=False, server_default="cpgrams"),
-    )
-    op.create_index("ix_grievances_grievance_type", "grievances", ["grievance_type"])
+    grievance_type.create(bind, checkfirst=True)
+
+    inspector = inspect(bind)
+    grievance_columns = {column["name"] for column in inspector.get_columns("grievances")}
+    if "grievance_type" not in grievance_columns:
+        op.add_column(
+            "grievances",
+            sa.Column("grievance_type", grievance_type, nullable=False, server_default="cpgrams"),
+        )
+
+    grievance_indexes = {index["name"] for index in inspector.get_indexes("grievances")}
+    if "ix_grievances_grievance_type" not in grievance_indexes:
+        op.create_index("ix_grievances_grievance_type", "grievances", ["grievance_type"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_grievances_grievance_type", table_name="grievances")
-    op.drop_column("grievances", "grievance_type")
-    sa.Enum(name="grievance_type").drop(op.get_bind(), checkfirst=True)
+    bind = op.get_bind()
+    inspector = inspect(bind)
+
+    grievance_indexes = {index["name"] for index in inspector.get_indexes("grievances")}
+    if "ix_grievances_grievance_type" in grievance_indexes:
+        op.drop_index("ix_grievances_grievance_type", table_name="grievances")
+
+    grievance_columns = {column["name"] for column in inspector.get_columns("grievances")}
+    if "grievance_type" in grievance_columns:
+        op.drop_column("grievances", "grievance_type")
+
+    sa.Enum(name="grievance_type").drop(bind, checkfirst=True)
